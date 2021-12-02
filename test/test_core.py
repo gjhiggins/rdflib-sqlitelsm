@@ -6,7 +6,7 @@ import rdflib
 from rdflib_sqlitelsm.sqlitelsmstore import readable_index, NoopMethods
 from rdflib.graph import Graph, ConjunctiveGraph, Literal, URIRef
 from rdflib.namespace import XSD, RDFS
-from rdflib.store import VALID_STORE
+from rdflib.store import VALID_STORE, NO_STORE
 import logging
 
 logging.basicConfig(level=logging.ERROR, format="%(message)s")
@@ -126,8 +126,8 @@ class TestSQLiteLSMGraphCore(unittest.TestCase):
 
     def test_reopening_missing_db(self):
         self.graph.store.close()
-        with self.assertRaises(Exception):
-            self.graph.store.open("NotAnExistingDB", create=False)
+        self.graph.store.destroy()
+        self.assertEqual(self.graph.open(self.path, create=False), NO_STORE)
 
     def test_isopen_db(self):
         self.assertTrue(self.graph.store.is_open() is True)
