@@ -1,0 +1,427 @@
+<?xml version="1.0"?>
+<!DOCTYPE owl [
+    <!ENTITY ocirc        "&#244;">
+    <!ENTITY dbpedia      "http://dbpedia.org/resource/">
+    <!ENTITY xsd          "http://www.w3.org/2001/XMLSchema#"> 
+    <!ENTITY parliament   "Parliament of the United Kingdom and Northern Ireland">
+]>
+<rdf:RDF
+    xmlns:proton="http://proton.semanticweb.org/2005/04/protons#"
+    xmlns:protonu="http://proton.semanticweb.org/2005/04/protonu#"
+    xmlns:protege="http://protege.stanford.edu/plugins/owl/protege#"
+    xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema#"
+    xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+    xmlns:owl="http://www.w3.org/2002/07/owl#"
+    xmlns:foaf="http://daml.umbc.edu/ontologies/cobra/0.4/foaf-basic#"
+    xmlns:role="http://daml.umbc.edu/ontologies/cobra/0.4/role#"
+    xmlns:govt="http://reliant.teknowledge.com/DAML/Government.owl#"
+    xmlns:sumo="http://reliant.teknowledge.com/DAML/SUMO.owl#"
+    xmlns:protont="http://proton.semanticweb.org/2005/04/protont#"
+    xmlns:dc="http://purl.org/dc/elements/1.1/"
+    xmlns:dcterms="http://purl.org/dc/terms/"
+    xmlns="http://bel-epa.com/ont/2007/6/ukpp.owl#"
+  xml:base="http://bel-epa.com/ont/2007/6/ukpp.owl">
+  <owl:Ontology rdf:about="">
+    <owl:imports rdf:resource="http://reliant.teknowledge.com/DAML/Government.owl"/>
+    <owl:imports rdf:resource="http://reliant.teknowledge.com/DAML/SUMO.owl"/>
+    <owl:imports rdf:resource="http://proton.semanticweb.org/2005/04/protonu"/>
+    <owl:imports rdf:resource="http://daml.umbc.edu/ontologies/cobra/0.4/foaf-basic"/>
+    <dc:format rdf:datatype="http://www.w3.org/2001/XMLSchema#string">application/rdf+xml</dc:format>
+    <owl:versionInfo rdf:datatype="&xsd;string">0.9</owl:versionInfo>
+    <rdfs:comment xml:lang="en">An OWL ontology for describing Members of the UK Parliament, (both houses), constituencies, Government, Parliamentary and other offices, political parties, ministerial replies (spoken and written) from Hansard and ministerial statements.</rdfs:comment>
+    <rdfs:label xml:lang="en">An OWL ontology for describing Members of the UK Parliament, (both houses), constituencies, Government, Parliamentary and other offices, political parties, ministerial replies (spoken and written) from Hansard and ministerial statements.</rdfs:label>
+    <dc:creator>Graham Higgins</dc:creator>
+    <dcterms:issued>2007-06-23</dcterms:issued>
+    <dcterms:modified>2012-06-24</dcterms:modified>
+  </owl:Ontology>
+
+  <owl:Class rdf:ID="URI">
+    <rdfs:subClassOf rdf:resource="http://proton.semanticweb.org/2005/04/protonu#InternetAddress"/>
+    <rdfs:comment xml:lang="en">General concept of a URI, for various purposes, so that common properties can be inherited</rdfs:comment>
+    <rdfs:label xml:lang="en">General concept of a URI, for various purposes, so that common properties can be inherited</rdfs:label>
+  </owl:Class>
+
+  <owl:Class rdf:ID="UKElectoralRegion">
+    <rdfs:subClassOf rdf:resource="http://proton.semanticweb.org/2005/04/protonu#PoliticalRegion"/>
+    <rdfs:subClassOf rdf:resource="#URI"/>
+  </owl:Class>
+
+  <owl:Class rdf:ID="Constituency">
+    <rdfs:label>Constituency of the &parliament;</rdfs:label>
+    <rdfs:comment>
+        The group or area from which voters in an election are drawn. In the United Kingdom, each of
+        the electoral areas or divisions called constituencies elects one or more members to a
+        parliament or assembly. Constituencies are designated as being either county or borough
+        constituencies. Borough constituencies (in Scotland, burgh constituencies) are predominantly
+        urban. They are the successors of the historic parliamentary boroughs (or burghs of the
+        Parliament of Scotland). County constituencies are the successors to the historic
+        parliamentary divisions of counties, and are predominantly rural in nature. Sometimes a town
+        can be covered by more than one constituency, with one a borough and another a county.
+        Reading and Milton Keynes are both examples of this. The spending limits for election
+        campaigns are different in the two, the reasoning being that candidates in county
+        constituencies tend to need to travel further.
+        </rdfs:comment>
+    <rdfs:subClassOf rdf:resource="#UKElectoralRegion"/>
+  </owl:Class>
+
+  <owl:Class rdf:ID="Area">
+    <rdfs:subClassOf rdf:resource="http://proton.semanticweb.org/2005/04/protonu#PoliticalRegion"/>
+  </owl:Class>
+  
+  <owl:Class rdf:ID="Region">
+    <rdfs:subClassOf rdf:resource="http://proton.semanticweb.org/2005/04/protonu#PoliticalRegion"/>
+  </owl:Class>
+
+  <owl:Class rdf:ID="ScottishRegion">
+    <rdfs:subClassOf rdf:resource="#UKElectoralRegion"/>
+  </owl:Class>
+
+  <owl:Class rdf:ID="UKPoliticalParty">
+    <rdfs:label xml:lang="en">Political Party sponsoring candidates for election to the Parliament of the United Kingdom.</rdfs:label>
+    <rdfs:comment xml:lang="en">Political Party sponsoring candidates for election to the Parliament of the United Kingdom.</rdfs:comment>
+    <rdfs:subClassOf rdf:resource="http://reliant.teknowledge.com/DAML/Government.owl#PoliticalParty"/>
+    <rdfs:subClassOf rdf:resource="http://proton.semanticweb.org/2005/04/protonu#PoliticalParty"/>
+    <rdfs:subClassOf rdf:resource="#URI"/>
+  </owl:Class>
+
+  <owl:Class rdf:ID="UKParliament">
+    <rdfs:label>The &parliament;</rdfs:label>
+    <rdfs:comment>
+        General concept for parliaments convened within the area of England, Scotland, Wales and
+        Ireland. This is an historically-oriented concept intended to represent various assemblies
+        held since the 13thC. In times past, the geographical area included Wales, Scotland and
+        Ireland. In 2007, the current UK parliament is described as the parliament of the "United
+        Kingdom of Great Britain and Northern Ireland". Earlier parliaments are described variously
+        as "Parliament of England", "Parliament of Great Britain" and "Parliament of the United
+        Kingdom", relecting the different representation separate concepts have been created to
+        represent these different subclasses of Parliament.
+        </rdfs:comment>
+    <rdfs:subClassOf rdf:resource="http://proton.semanticweb.org/2005/04/protonu#Parliament"/>
+    <rdfs:subClassOf rdf:resource="http://reliant.teknowledge.com/DAML/Government.owl#Parliament"/>
+    <rdfs:subClassOf rdf:resource="#URI"/>
+  </owl:Class>
+  
+  <owl:Class rdf:ID="HouseOfLords">
+    <rdfs:label rdf:datatype="&xsd;string">
+        The House of Lords, the "upper" legislative chamber of the Parliament of the United
+        Kingdom and Northern Ireland
+        </rdfs:label>
+    <rdfs:comment rdf:datatype="&xsd;string">
+        The House of Lords, the "upper" legislative chamber of the Parliament of the United
+        Kingdom and Northern Ireland
+        </rdfs:comment>
+    <rdfs:seeAlso>
+      <rdf:Description rdf:about="&dbpedia;House_of_Lords">
+        <dc:format rdf:datatype="&xsd;string">application/rdf+xml</dc:format>
+      </rdf:Description>
+    </rdfs:seeAlso>
+    <rdfs:comment xml:lang="en">The "upper" chamber of &parliament;</rdfs:comment>
+    <rdfs:subClassOf rdf:resource="http://reliant.teknowledge.com/DAML/Government.owl#LegislativeChamber"/>
+  </owl:Class>
+
+  <owl:Class rdf:ID="HouseOfCommons">
+    <rdfs:label rdf:datatype="&xsd;string">
+        The House of Commons, the "lower" legislative chamber of the Parliament of the United
+        Kingdom and Northern Ireland
+        </rdfs:label>
+    <rdfs:comment rdf:datatype="&xsd;string">
+        The House of Commons, the "lower" legislative chamber of the Parliament of the United
+        Kingdom and Northern Ireland
+        </rdfs:comment>
+    <rdfs:seeAlso>
+      <rdf:Description rdf:about="&dbpedia;House_of_Commons">
+        <dc:format rdf:datatype="&xsd;string">application/rdf+xml</dc:format>
+      </rdf:Description>
+    </rdfs:seeAlso>
+    <rdfs:comment xml:lang="en">The "lower" chamber of &parliament;</rdfs:comment>
+    <rdfs:subClassOf rdf:resource="http://reliant.teknowledge.com/DAML/Government.owl#LegislativeChamber"/>
+  </owl:Class>
+
+  <owl:Class rdf:ID="UKGBNIParliament">
+    <rdfs:label rdf:datatype="&xsd;string">Westminster</rdfs:label>
+    <rdfs:comment>
+        The 21stC. format of &parliament;, composed of two chambers: an "upper" chamber called the
+        "House of Lords" and a "lower" chamber called the "House of Commons". This is the main
+        legislature for the UK. Scotland has a separate Scottish Parliament, Wales has a National
+        Assembly and Northern Ireland also has an Assembly.
+    </rdfs:comment>
+    <rdfs:seeAlso>
+      <rdf:Description rdf:about="&dbpedia;Parliament_of_the_United_Kingdom">
+        <dc:format rdf:datatype="&xsd;string">application/rdf+xml</dc:format>
+      </rdf:Description>
+    </rdfs:seeAlso>
+    <rdfs:subClassOf rdf:resource="#UKParliament"/>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="http://reliant.teknowledge.com/DAML/Government.owl#chamberOfLegislature"/>
+        <owl:cardinality rdf:datatype="&xsd;int">2</owl:cardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+  </owl:Class>
+  
+  <owl:Class rdf:ID="ParliamentOfEngland">
+    <rdfs:label rdf:datatype="&xsd;string">Westminster</rdfs:label>
+    <rdfs:comment>
+        The 13thC. format of &parliament;, composed of a single chamber.
+    </rdfs:comment>
+    <rdfs:seeAlso>
+      <rdf:Description rdf:about="&dbpedia;Parliament_of_England">
+        <dc:format rdf:datatype="&xsd;string">application/rdf+xml</dc:format>
+      </rdf:Description>
+    </rdfs:seeAlso>
+    <rdfs:subClassOf rdf:resource="#UKParliament"/>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="http://reliant.teknowledge.com/DAML/Government.owl#chamberOfLegislature"/>
+        <owl:cardinality rdf:datatype="&xsd;int">1</owl:cardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+  </owl:Class>
+  
+  <owl:Class rdf:ID="ParliamentOfGreatBritain">
+    <rdfs:label rdf:datatype="&xsd;string">Westminster</rdfs:label>
+    <rdfs:comment>
+        A later format of &parliament;, composed of two chambers: an "upper" chamber called the
+        "House of Lords" and a "lower" chamber called the "House of Commons". This is the main
+        legislature for Great Britain.
+    </rdfs:comment>
+    <rdfs:seeAlso>
+      <rdf:Description rdf:about="&dbpedia;Parliament_of_Great_Britain">
+        <dc:format rdf:datatype="&xsd;string">application/rdf+xml</dc:format>
+      </rdf:Description>
+    </rdfs:seeAlso>
+    <rdfs:subClassOf rdf:resource="#UKParliament"/>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="http://reliant.teknowledge.com/DAML/Government.owl#chamberOfLegislature"/>
+        <owl:cardinality rdf:datatype="&xsd;int">1</owl:cardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+  </owl:Class>
+  
+  <owl:Class rdf:ID="ParliamentOfTheUnitedKingdom">
+    <rdfs:label rdf:datatype="&xsd;string">Westminster</rdfs:label>
+    <rdfs:comment>
+        A later format of &parliament;, composed of two chambers: an "upper" chamber called the
+        "House of Lords" and a "lower" chamber called the "House of Commons". This is the main
+        legislature for the United Kingdom.
+    </rdfs:comment>
+    <rdfs:seeAlso>
+      <rdf:Description rdf:about="&dbpedia;Parliament_of_the_United_Kingdom">
+        <dc:format rdf:datatype="&xsd;string">application/rdf+xml</dc:format>
+      </rdf:Description>
+    </rdfs:seeAlso>
+    <rdfs:subClassOf rdf:resource="#UKParliament"/>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="http://reliant.teknowledge.com/DAML/Government.owl#chamberOfLegislature"/>
+        <owl:cardinality rdf:datatype="&xsd;int">1</owl:cardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+  </owl:Class>
+
+  <owl:Class rdf:ID="ScottishParliament">
+    <rdfs:label rdf:datatype="&xsd;string">Holyrood</rdfs:label>
+    <rdfs:comment>
+        The Scottish Parliament, a single chamber.
+    </rdfs:comment>
+    <rdfs:seeAlso>
+      <rdf:Description rdf:about="&dbpedia;Scottish_Parliament">
+        <dc:format rdf:datatype="&xsd;string">application/rdf+xml</dc:format>
+      </rdf:Description>
+    </rdfs:seeAlso>
+    <rdfs:subClassOf rdf:resource="http://proton.semanticweb.org/2005/04/protonu#Parliament"/>
+  </owl:Class>
+
+  <owl:Class rdf:ID="Parliamentarian">
+    <rdfs:label xml:lang="en">Member of UK Parliament of either chamber</rdfs:label>
+    <rdfs:comment xml:lang="en">A Member of the UK Parliament, of either chamber.</rdfs:comment>
+    <rdfs:comment xml:lang="en">** Actually, this might also do duty for Holyrood.</rdfs:comment>
+    <rdfs:subClassOf rdf:resource="http://daml.umbc.edu/ontologies/cobra/0.4/foaf-basic#Person"/>
+    <rdfs:subClassOf rdf:resource="http://proton.semanticweb.org/2005/04/protont#Person"/>
+    <rdfs:subClassOf rdf:resource="http://reliant.teknowledge.com/DAML/SUMO.owl#Agent"/>
+    <rdfs:subClassOf rdf:resource="#URI"/>
+  </owl:Class>
+
+  <owl:Class rdf:ID="MemberOfParliament">
+    <rdfs:comment xml:lang="en">A member of the UK House of Commons</rdfs:comment>
+    <rdfs:subClassOf><owl:Class rdf:about="#Parliamentarian"/></rdfs:subClassOf>
+  </owl:Class>
+
+  <owl:Class rdf:ID="LordOfParliament">
+    <rdfs:comment xml:lang="en">A member of the UK House of Lords</rdfs:comment>
+    <rdfs:subClassOf><owl:Class rdf:about="#Parliamentarian"/></rdfs:subClassOf>
+  </owl:Class>
+
+  <owl:Class rdf:ID="ParliamentaryRole">
+    <rdfs:subClassOf rdf:resource="http://proton.semanticweb.org/2005/04/protonu#SocialAbstraction"/>
+    <rdfs:subClassOf rdf:resource="#URI"/>
+    <rdfs:comment xml:lang="en">Parliamentarian&apos;s role: member of political party; independent; officer of the House.</rdfs:comment>
+  </owl:Class>
+
+  <owl:Class rdf:ID="LordOfParliamentRole">
+      <rdfs:subClassOf rdf:resource="#ParliamentaryRole"/>
+      <owl:disjointWith rdf:resource="#PartyAffiliation"/>
+      <rdfs:label xml:lang="en">Lord&apos;s role: member of political party; cross-bencher; officer of the House.</rdfs:label>
+      <rdfs:comment xml:lang="en">Lord&apos;s role: member of political party; cross-bencher; officer of the House.</rdfs:comment>
+  </owl:Class>
+  
+  <owl:Class rdf:ID="MemberOfParliamentRole">
+      <rdfs:subClassOf rdf:resource="#ParliamentaryRole"/>
+      <owl:disjointWith rdf:resource="#PartyAffiliation"/>
+      <rdfs:label xml:lang="en">Member&apos;s role: member of political party; independent MP; officer of the House.</rdfs:label>
+      <rdfs:comment xml:lang="en">Member&apos;s role: member of political party; independent MP; officer of the House.</rdfs:comment>
+  </owl:Class>
+
+  <owl:Class rdf:ID="PartyAffiliation">
+      <rdfs:subClassOf rdf:resource="#ParliamentaryRole"/>
+      <owl:disjointWith rdf:resource="#LordOfParliamentRole"/>
+      <owl:disjointWith rdf:resource="#MemberOfParliamentRole"/>
+      <rdfs:label xml:lang="en">Parliamentarian&apos;s affiliation with a political party</rdfs:label>
+      <rdfs:comment xml:lang="en">Parliamentarian&apos;s affiliation with a political party</rdfs:comment>
+  </owl:Class>
+
+  <owl:FunctionalProperty rdf:ID="hasConstituency">
+    <rdfs:domain rdf:resource="#MemberOfParliament"/>
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#ObjectProperty"/>
+    <owl:inverseOf><owl:InverseFunctionalProperty rdf:about="#hasMemberOfParliament"/></owl:inverseOf>
+    <rdfs:range rdf:resource="#Constituency"/>
+  </owl:FunctionalProperty>
+
+  <owl:DatatypeProperty rdf:ID="foreNames">
+    <rdfs:label>Forenames</rdfs:label>
+    <rdfs:comment>Official forenames</rdfs:comment>
+    <rdfs:domain rdf:resource="#LordOfParliament"/>
+    <rdfs:range rdf:resource="&xsd;string"/>
+  </owl:DatatypeProperty>
+
+  <owl:DatatypeProperty rdf:ID="foreNamesInFull">
+    <rdfs:label>ForenamesFull</rdfs:label>
+    <rdfs:comment>Official forenames, fully styled</rdfs:comment>
+    <rdfs:domain rdf:resource="#LordOfParliament"/>
+    <rdfs:range rdf:resource="&xsd;string"/>
+  </owl:DatatypeProperty>
+
+  <owl:DatatypeProperty rdf:ID="lordName">
+    <rdfs:label>LordName</rdfs:label>
+    <rdfs:comment>Official name</rdfs:comment>
+    <rdfs:domain rdf:resource="#LordOfParliament"/>
+    <rdfs:range rdf:resource="&xsd;string"/>
+  </owl:DatatypeProperty>
+
+  <owl:DatatypeProperty rdf:ID="lordOfName">
+    <rdfs:label>LordOfName</rdfs:label>
+    <rdfs:comment>Place of lordship</rdfs:comment>
+    <rdfs:domain rdf:resource="#LordOfParliament"/>
+    <rdfs:range rdf:resource="&xsd;string"/>
+  </owl:DatatypeProperty>
+
+  <owl:DatatypeProperty rdf:ID="lordOfNameInFull">
+    <rdfs:label>LordOfNameFull</rdfs:label>
+    <rdfs:comment>Official title, fully styled</rdfs:comment>
+    <rdfs:domain rdf:resource="#LordOfParliament"/>
+    <rdfs:range rdf:resource="&xsd;string"/>
+  </owl:DatatypeProperty>
+
+  <owl:DatatypeProperty rdf:ID="countyName">
+    <rdfs:label>County</rdfs:label>
+    <rdfs:comment>County (a disambiguator)</rdfs:comment>
+    <rdfs:domain rdf:resource="#LordOfParliament"/>
+    <rdfs:range rdf:resource="&xsd;string"/>
+  </owl:DatatypeProperty>
+
+  <owl:DatatypeProperty rdf:ID="peerageType">
+    <rdfs:label>PeerageType</rdfs:label>
+    <rdfs:comment>Peerage type (simple string value for now, classes and instances to be developed later)</rdfs:comment>
+    <rdfs:domain rdf:resource="#LordOfParliament"/>
+    <rdfs:range rdf:resource="&xsd;string"/>
+  </owl:DatatypeProperty>
+
+  <owl:DatatypeProperty rdf:ID="startingDate">
+      <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
+      <rdfs:domain rdf:resource="#ParliamentaryRole"/>
+      <rdfs:range rdf:resource="&xsd;date"/>
+  </owl:DatatypeProperty>
+  
+  <owl:DatatypeProperty rdf:ID="endingDate">
+      <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
+      <rdfs:domain rdf:resource="#ParliamentaryRole"/>
+      <rdfs:range rdf:resource="&xsd;date"/>
+  </owl:DatatypeProperty>
+  
+  <owl:DatatypeProperty rdf:ID="dbpediaEntry">
+      <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
+      <rdfs:domain rdf:resource="#URI"/>
+      <rdfs:range rdf:resource="&xsd;anyURI"/>
+  </owl:DatatypeProperty>
+  
+  <owl:DatatypeProperty rdf:ID="wikipediaEntry">
+      <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
+      <rdfs:domain rdf:resource="#URI"/>
+      <rdfs:range rdf:resource="&xsd;anyURI"/>
+  </owl:DatatypeProperty>
+
+  <owl:DatatypeProperty rdf:ID="familyName">
+    <rdfs:label>Family Name</rdfs:label>
+    <rdfs:comment>Family Name</rdfs:comment>
+    <rdfs:domain rdf:resource="#Parliamentarian"/>
+    <rdfs:range rdf:resource="&xsd;string"/>
+  </owl:DatatypeProperty>
+
+  <owl:DatatypeProperty rdf:ID="givenName">
+    <rdfs:label>Given Name</rdfs:label>
+    <rdfs:comment>Given Name</rdfs:comment>
+    <rdfs:domain rdf:resource="#Parliamentarian"/>
+    <rdfs:range rdf:resource="&xsd;string"/>
+  </owl:DatatypeProperty>
+
+  <owl:DatatypeProperty rdf:ID="title">
+    <rdfs:label>Title</rdfs:label>
+    <rdfs:comment>Title</rdfs:comment>
+    <rdfs:domain rdf:resource="#Parliamentarian"/>
+    <rdfs:range rdf:resource="&xsd;string"/>
+  </owl:DatatypeProperty>
+
+  <owl:DatatypeProperty rdf:ID="name">
+    <rdfs:label>Full Name</rdfs:label>
+    <rdfs:comment>Full Name</rdfs:comment>
+    <rdfs:domain rdf:resource="#Parliamentarian"/>
+    <rdfs:range rdf:resource="&xsd;string"/>
+  </owl:DatatypeProperty>
+
+  <owl:ObjectProperty rdf:ID="roleTaken">
+    <rdfs:domain rdf:resource="#ParliamentaryRole"/>
+    <rdfs:range>
+      <owl:Class>
+        <owl:unionOf rdf:parseType="Collection">
+          <owl:Class rdf:about="#PartyAffiliation"/>
+          <owl:Class rdf:about="#MemberOfParliamentRole"/>
+          <owl:Class rdf:about="#LordOfParliamentRole"/>
+        </owl:unionOf>
+      </owl:Class>
+    </rdfs:range>
+    <rdfs:comment xml:lang="en">Role taken by Parliamentarian in Parliament</rdfs:comment>
+  </owl:ObjectProperty>
+
+  <owl:ObjectProperty rdf:ID="partyAffiliation">
+      <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
+      <rdfs:domain rdf:resource="#PartyAffiliation"/>
+      <rdfs:range rdf:resource="#UKPoliticalParty"/>
+      <owl:inverseOf rdf:resource="http://reliant.teknowledge.com/DAML/SUMO.owl#member"/>
+      <rdfs:label xml:lang="en">Parliamentarian&apos;s political affiliation</rdfs:label>
+      <rdfs:comment xml:lang="en">Parliamentarian&apos;s political affiliation</rdfs:comment>
+  </owl:ObjectProperty>
+
+  <owl:ObjectProperty rdf:ID="hasMemberOfParliament">
+      <rdfs:domain rdf:resource="#Constituency"/>
+      <rdfs:range rdf:resource="#MemberOfParliament"/>
+      <owl:inverseOf rdf:resource="#hasConstituency"/>
+  </owl:ObjectProperty>
+
+  <owl:ObjectProperty rdf:ID="parliamentaryRole">
+    <rdfs:domain rdf:resource="#Parliamentarian"/>
+    <rdfs:range rdf:resource="#ParliamentaryRole"/>
+    <rdfs:comment xml:lang="en">Parliamentarian&apos;s role.</rdfs:comment>
+  </owl:ObjectProperty>
+</rdf:RDF>

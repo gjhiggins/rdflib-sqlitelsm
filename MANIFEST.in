@@ -1,0 +1,11 @@
+include LICENSE
+include CONTRIBUTORS
+include CHANGELOG.md
+include README.md
+recursive-include rdflib_sqlitelsm *.py
+recursive-include examples *.py
+graft test
+graft docs
+prune docs/_build
+global-exclude *.pyc *$py.class
+include setup.*

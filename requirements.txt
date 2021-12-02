@@ -1,0 +1,3 @@
+git+https://github.com/RDFLib/rdflib#egg=rdflib
+Cython
+lsm-db
