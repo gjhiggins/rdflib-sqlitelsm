@@ -191,7 +191,7 @@ class SQLiteLSMStore(Store):
                 self.dbdir = dbpathname
         else:
             if not os.path.exists(dbpathname):
-                raise Exception(f"Database not found {dbpathname}.")
+                return NO_STORE
             else:
                 self.dbdir = dbpathname  # .encode("utf-8")
 
