@@ -2,7 +2,6 @@
 import os
 import gc
 from time import time
-from pprint import pformat
 from rdflib.namespace import Namespace
 from rdflib import Graph, RDF, RDFS, FOAF, OWL
 from rdflib.term import URIRef
@@ -46,6 +45,7 @@ def create_database_from_memorygraph():
         graph.add(triple)
     t1 = time()
     assert len(graph) == 113545, len(graph)
+    print(f"Number of triples loaded {len(graph)}")
     memgraph.close()
     graph.close()
     print(f"Add to graph: {t1 - t0:.3f}s")  # Add to graph: 9.481s
@@ -282,7 +282,9 @@ if __name__ == "__main__":
 
         if not os.path.exists(ukppdbpath):
             create_database_from_memorygraph()
-        # shutil.rmtree(ukppdbpath)
+
+        reload_database()
+        shutil.rmtree(ukppdbpath)
 
         # with cProfile.Profile() as pr:
         #     create_leveldb_database_from_parse()
