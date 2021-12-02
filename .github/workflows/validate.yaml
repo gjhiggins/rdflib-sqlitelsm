@@ -57,7 +57,6 @@ jobs:
         run: |
           if [ "${{ matrix.os }}" == "ubuntu-latest" ]
           then
-              sudo apt-get install -y libsqlitelsm-dev
               python -m pip install --default-timeout 60 -r requirements.txt
               sudo apt-get install -y libdb-dev
               python -m pip install --default-timeout 60 -r requirements.dev.txt
