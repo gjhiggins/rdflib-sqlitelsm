@@ -61,7 +61,7 @@ if os.environ.get("READTHEDOCS", None):
     packages.append("examples")
 
 setup(
-    name="rdflib-sqlite",
+    name="rdflib-sqlitelsm",
     version=version,
     description="rdflib extension adding SQLite’s LSM as back-end store",
     author="RDFLib team",
