@@ -171,18 +171,21 @@ def test_sqlitelsm_conjunctive_graph_readable_index(get_conjunctive_graph):
     assert repr(readable_index(111)) == "'s,p,o'"
 
 
-def test_sqlitelsm_conjunctive_graph_triples_context_reset(
+def test_sqlitelsm_conjunctive_graph_triples_context(
     get_conjunctive_graph,
 ):
-    graph = get_conjunctive_graph
-    # I don't think this is doing what it says on the tin
+
+    cg = get_conjunctive_graph
+
+    graph = cg.get_context(context1)
+
     graph.add((michel, likes, pizza))
     graph.add((michel, likes, cheese))
+
     graph.commit()
-    ntriples = list(
-        graph.triples((None, None, None), context=next(graph.contexts()))
-    )
-    assert len(ntriples) == 0, len(ntriples)
+
+    triples = list(graph.triples((None, None, None)))
+    assert len(triples) == 2, len(triples)
 
 
 def test_sqlitelsm_conjunctive_graph_remove_context_reset(
