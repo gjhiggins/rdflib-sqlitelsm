@@ -260,20 +260,20 @@ def read_doacc():
         gc.enable()
 
 
-def show_doacc():
-    from rdflib.extras.visualizegraph import visualize_graph
+# def show_doacc():
+#     from rdflib.extras.visualizegraph import visualize_graph
 
-    graph = Graph()
-    graph.parse(doacc_tbox, format="xml")
-    visualize_graph(graph, "DOACC", shortMode=True, format1="png")
+#     graph = Graph()
+#     graph.parse(doacc_tbox, format="xml")
+#     visualize_graph(graph, "DOACC", shortMode=True, format1="png")
 
 
-def show_ukparl():
-    from rdflib.extras.visualizegraph import visualize_graph
+# def show_ukparl():
+#     from rdflib.extras.visualizegraph import visualize_graph
 
-    graph = Graph()
-    graph.parse(os.path.join(ukparl, "ukparl-tbox.xml"), format="xml")
-    visualize_graph(graph, "DOACC", shortMode=True, format1="png")
+#     graph = Graph()
+#     graph.parse(os.path.join(ukparl, "ukparl-tbox.xml"), format="xml")
+#     visualize_graph(graph, "DOACC", shortMode=True, format1="png")
 
 
 if __name__ == "__main__":

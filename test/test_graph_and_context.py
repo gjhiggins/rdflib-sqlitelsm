@@ -15,7 +15,7 @@ import os
 
 storename = "SQLiteLSM"
 storetest = True
-configString = os.path.join(tempfile.gettempdir(), "test_sqlite")
+configString = os.path.join(tempfile.gettempdir(), "test_sqlitelsm")
 
 
 # @unittest.skip("WIP")
