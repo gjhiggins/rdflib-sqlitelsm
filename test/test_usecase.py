@@ -5,7 +5,7 @@ from rdflib import URIRef
 from rdflib.graph import Graph
 
 
-path = os.path.join(tempfile.gettempdir(), "test_sqlite")
+path = os.path.join(tempfile.gettempdir(), "test_sqlitelsm")
 
 
 def test_create():

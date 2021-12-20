@@ -20,8 +20,8 @@ bob = URIRef("urn:bob")
 cheese = URIRef("urn:cheese")
 likes = URIRef("urn:likes")
 pizza = URIRef("urn:pizza")
-uri1 = URIRef("urn:graph1")
-uri2 = URIRef("urn:graph2")
+context1 = URIRef("urn:graph1")
+context2 = URIRef("urn:graph2")
 
 store = "SQLiteLSM"
 path = os.path.join(tempfile.gettempdir(), f"test_{store.lower()}")
@@ -30,8 +30,12 @@ path = os.path.join(tempfile.gettempdir(), f"test_{store.lower()}")
 @pytest.fixture
 def get_graph():
 
+    try:
+        shutil.rmtree(path)
+    except Exception:
+        pass
     graph = Graph(store=store)
-    rt = graph.open(path, create=True)
+    rt = graph.open(configuration=path, create=True)
     assert rt == VALID_STORE, "The underlying store is corrupt"
     assert (
         len(graph) == 0
@@ -39,14 +43,7 @@ def get_graph():
     data = """
             PREFIX : <https://example.org/>
 
-            :a :b :c .    if os.path.isdir(path):
-        shutil.rmtree(path)
-    else:
-        try:
-            os.remove(path)
-        except Exception:
-            pass
-
+            :a :b :c .
             :d :e :f .
             :d :g :h .
             """
@@ -127,25 +124,6 @@ def test_sqlitelsm_graph_readable_index():
     assert readable_index(111) == "s,p,o"
 
 
-def test_sqlitelsm_graph_missing_db_exception(get_graph):
-    # What IS this supposed to do?
-    graph = get_graph
-    graph.store.close()
-
-    if path is not None:
-        if os.path.exists(path):
-            if os.path.isdir(path):
-                shutil.rmtree(path)
-            elif len(path.split(":")) == 1:
-                os.unlink(path)
-            else:
-                os.remove(path)
-
-    graph.store.open(path, create=True)
-    ntriples = graph.triples((None, None, None))
-    assert len(list(ntriples)) == 0
-
-
 def test_sqlitelsm_graph_reopening_db(get_graph):
     graph = get_graph
     graph.add((michel, likes, pizza))
@@ -157,7 +135,14 @@ def test_sqlitelsm_graph_reopening_db(get_graph):
     assert len(ntriples) == 5, f"Expected 5 not {len(ntriples)}"
 
 
-def test_sqlitelsm_graph_reopening_missing_db(get_graph):
+def test_sqlitelsm_graph_missing_db_returns_no_store(get_graph):
+    graph = get_graph
+    graph.store.close()
+    shutil.rmtree(path)
+    assert graph.store.open(path, create=False) == NO_STORE
+
+
+def test_sqlitelsm_graph_reopening_missing_db_returns_no_store(get_graph):
     graph = get_graph
     graph.store.close()
     graph.store.destroy()
@@ -172,7 +157,7 @@ def test_sqlitelsm_graph_isopen_db(get_graph):
 
 
 def test_sqlitelsm_conjunctive_graph_namespaces(get_conjunctive_graph):
-    graph = get_graph
+    graph = get_conjunctive_graph
     no_of_default_namespaces = len(list(graph.namespaces()))
     graph.bind("exorg", "http://example.org/")
     graph.bind("excom", "http://example.com/")
@@ -203,17 +188,28 @@ def test_sqlitelsm_conjunctive_graph_triples_context_reset(
 def test_sqlitelsm_conjunctive_graph_remove_context_reset(
     get_conjunctive_graph,
 ):
-    graph = get_conjunctive_graph
+    cg = get_conjunctive_graph
+    graph = cg.get_context(identifier=context1)
+
     graph.add((michel, likes, pizza))
     graph.add((michel, likes, cheese))
     graph.commit()
-    graph.remove((michel, likes, cheese, next(graph.contexts())))
+
+    triples = list(graph.triples((None, None, None)))
+
+    assert len(triples) == 2, len(triples)
+
+    graph.remove((michel, likes, cheese))
+    graph.remove((michel, likes, pizza))
+
     graph.commit()
-    ntriples = list(graph.triples((None, None, None)))
-    assert len(ntriples) == 1, len(ntriples)
+
+    triples = list(graph.triples((None, None, None)))
+
+    assert len(triples) == 0, len(triples)
 
 
-def test_sqlitelsm_conjunctive_graph_remove_db_exception(
+def test_sqlitelsm_conjunctive_graph_default_remove_triples(
     get_conjunctive_graph,
 ):
     graph = get_conjunctive_graph
@@ -240,8 +236,13 @@ def test_sqlitelsm_conjunctive_graph_nquads_default_graph(
     graph = get_conjunctive_graph
     graph.parse(data=data, format="nquads", publicID=publicID)
 
-    assert len(graph) == 3, len(graph)
-    assert len(list(graph.contexts())) == 2, len(list(graph.contexts()))
+    assert len(graph) == 6, len(graph)
+
+    # Three contexts@ the default, the publicID and one from the quad
+    assert (
+        len(list(graph.contexts())) == 3
+    ), f"contexts:\n{pformat(list(graph.contexts()))}"
+
     assert len(graph.get_context(publicID)) == 2, len(
         graph.get_context(publicID)
     )
@@ -249,16 +250,18 @@ def test_sqlitelsm_conjunctive_graph_nquads_default_graph(
 
 def test_sqlitelsm_conjunctive_graph_serialize(get_conjunctive_graph):
     graph = get_conjunctive_graph
-    graph.get_context(uri1).add((bob, likes, pizza))
-    graph.get_context(uri2).add((bob, likes, pizza))
+    graph.get_context(context1).add((bob, likes, pizza))
+    graph.get_context(context2).add((bob, likes, pizza))
     s = graph.serialize(format="nquads")
-    assert len([x for x in s.split("\n") if x.strip()]) == 2
+    assert len([x for x in s.split("\n") if x.strip()]) == 5
 
     g2 = ConjunctiveGraph(store="SQLiteLSM")
     g2.open(tempfile.mktemp(prefix="sqlitelsmstoretest"), create=True)
     g2.parse(data=s, format="nquads")
 
     assert len(graph) == len(g2)
-    assert sorted(x.identifier for x in graph.contexts()) == sorted(
-        x.identifier for x in g2.contexts()
+    # default graphs are unique to each ConjunctiveGraph, so exclude
+    assert (
+        sorted(x.identifier for x in graph.contexts())[1:]
+        == sorted(x.identifier for x in g2.contexts())[1:]
     )
