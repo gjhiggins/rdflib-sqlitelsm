@@ -212,19 +212,6 @@ def test_sqlitelsm_conjunctive_graph_remove_context_reset(
     assert len(triples) == 0, len(triples)
 
 
-def test_sqlitelsm_conjunctive_graph_default_remove_triples(
-    get_conjunctive_graph,
-):
-    graph = get_conjunctive_graph
-    graph.add((michel, likes, pizza))
-    graph.add((michel, likes, cheese))
-    graph.commit()
-    ntriples = list(
-        graph.triples((None, None, None), context=next(graph.contexts()))
-    )
-    assert len(ntriples) == 0, len(ntriples)
-
-
 def test_sqlitelsm_conjunctive_graph_nquads_default_graph(
     get_conjunctive_graph,
 ):
