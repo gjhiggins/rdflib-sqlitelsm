@@ -138,8 +138,11 @@ def test_open_shut(get_conjunctive_graph):
     graph = None
 
     # reopen the graph
-    graph = ConjunctiveGraph("SQLiteLSM")
-    graph.open(path, create=False)
+    graph2 = ConjunctiveGraph("SQLiteLSM")
+    graph2.open(path, create=False)
+
     assert (
-        len(graph) == 3
+        len(graph2) == 3
     ), "After close and reopen, we should still have the 3 originally added triples"
+    graph2.close()
+    graph2.store.destroy(configuration=path)
