@@ -1,6 +1,6 @@
 # A SQLite LSM-backed persistence plugin store for RDFLib
 
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black) ![Validation: install and test](https://github.com/gjhiggins/rdflib-sqlitelsm/actions/workflows/validate.yaml/badge.svg) [action](https://github.com/gjhiggins/rdflib-sqlitelsm/actions/workflows/validate.yaml)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black) [![Validation: install and test](https://github.com/gjhiggins/rdflib-sqlitelsm/actions/workflows/validate.yaml/badge.svg)](https://github.com/gjhiggins/rdflib-sqlitelsm/actions/workflows/validate.yaml)
 
 
 An adaptation of RDFLib BerkeleyDB Store’s key-value approach, using SQLite’s [LSM](https://sqlite.org/src4/doc/trunk/www/lsmusr.wiki) as a back-end via the Python [lsm-db](https://github.com/coleifer/python-lsm-db) wrapper:
