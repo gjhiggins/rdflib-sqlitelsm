@@ -38,6 +38,7 @@ jobs:
 
       - name: "Upload coverage to Codecov"
         uses: codecov/codecov-action@v2
+        files: ./coverage1.xml # optional
         with:
           fail_ci_if_error: true
 
