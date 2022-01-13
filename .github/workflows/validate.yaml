@@ -36,6 +36,11 @@ jobs:
       #     distribution: "temurin"
       #     java-version: "17"
 
+      - name: "Upload coverage to Codecov"
+        uses: codecov/codecov-action@v2
+        with:
+          fail_ci_if_error: true
+
       - name: Get pip cache dir
         id: pip-cache
         shell: bash
