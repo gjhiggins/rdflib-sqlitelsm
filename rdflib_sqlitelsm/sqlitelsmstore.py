@@ -77,15 +77,10 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 
-class NoopMethods(object):
-    def __getattr__(self, methodName):
-        return lambda *args: None
-
-
 __all__ = ["SQLiteLSMStore"]
 
 
-class DB(object):
+class DB:
     def __init__(self, db=None):
         self.__db = db
 
@@ -99,13 +94,7 @@ class DB(object):
             return None
 
     def __setitem__(self, key, value):
-        with self.__db.transaction() as txn:
-            try:
-                self.__db[key] = value
-                txn.commit()
-            except Exception as e:
-                txn.rollback()
-                raise Exception(f"{e} cannot put key {key}, value {value}")
+        self.__db[key] = value
 
     def put(self, key, value):
         self.__setitem__(key, value)
@@ -114,20 +103,15 @@ class DB(object):
         self.__db.close()
 
     def delete(self, key):
-        with self.__db.transaction() as txn:
-            try:
-                del self.__db[key]
-                txn.commit()
-            except Exception as e:
-                txn.rollback()
-                raise Exception(f"{e} delete key {key}")
+        self.__db.delete(key)
 
     def __iter__(self):
-        for k in self.__db.keys():
-            yield k, self.__db[k]
+        for k, v in self.__db:
+            yield k, v
 
     def items(self):
-        return [(k, self.__db[k]) for k in self.__db.keys()]
+        for k, v in self.__db:
+            yield k, v
 
     def keys(self):
         return self.__db.keys()
@@ -281,13 +265,13 @@ class SQLiteLSMStore(Store):
             "self.__i2k": self.__i2k,
         }
         logger.debug("\n**** Dumping database:\n")
-        for k, v in dbs.items():
+        for k, v in dbs:
             if isinstance(v, (list, dict)):
                 logger.debug(f"{k}: {v}")
             else:
                 logger.debug(f"db: {k}")
-                for (key, val) in list(v.items()):
-                    logger.debug(f"\t{key}: {val}")
+                for key, value in v:
+                    logger.debug(f"\t{key}: {value}")
 
     def close(self, commit_pending_transaction=False):
         self.__open = False
@@ -417,7 +401,7 @@ class SQLiteLSMStore(Store):
             index, prefix, from_key, results_from_key = self.__lookup(
                 (subject, predicate, object), context
             )
-            for key, value in list(index[prefix:]):
+            for key, value in index[prefix:]:
                 if key.startswith(prefix):
                     c, s, p, o = from_key(key)
                     if context is None:
@@ -465,7 +449,7 @@ class SQLiteLSMStore(Store):
             (subject, predicate, object), context
         )
 
-        for key, value in list(index[prefix:]):
+        for key, value in index[prefix:]:
             if key.startswith(prefix):
                 yield results_from_key(key, subject, predicate, object, value)
             else:
@@ -479,16 +463,10 @@ class SQLiteLSMStore(Store):
 
         if context is None:
             prefix = "^".encode("latin-1")
+            return len(list(self.__indices[0][prefix:]))
         else:
             prefix = f"{self._to_string(context)}^".encode()
-
-        return len(
-            [
-                key
-                for key, value in list(self.__indices[0][prefix:])
-                if key.startswith(prefix)
-            ]
-        )
+            return len(list(self.__indices[0][prefix : prefix + b"x"]))
 
     def bind(self, prefix, namespace):
         prefix = prefix.encode("utf-8")
@@ -515,7 +493,7 @@ class SQLiteLSMStore(Store):
 
     def namespaces(self):
         for prefix, namespace in [
-            (k.decode(), v.decode()) for k, v in self.__namespace.items()
+            (k.decode(), v.decode()) for k, v in self.__namespace
         ]:
             yield prefix, URIRef(namespace)
 
