@@ -38,9 +38,12 @@ jobs:
 
       - name: "Upload coverage to Codecov"
         uses: codecov/codecov-action@v2
-        files: ./coverage1.xml # optional
         with:
-          fail_ci_if_error: true
+          files: ./coverage1.xml # optional
+          name: codecov-umbrella # optional
+          fail_ci_if_error: false # optional (default = false)
+          verbose: true # optional (default = false)
+
 
       - name: Get pip cache dir
         id: pip-cache
