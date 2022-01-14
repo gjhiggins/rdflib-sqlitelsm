@@ -103,21 +103,15 @@ class DB:
         self.__db.close()
 
     def delete(self, key):
+        # TODO defer this to thread
         self.__db.delete(key)
 
     def __iter__(self):
         for k, v in self.__db:
             yield k, v
 
-    def items(self):
-        for k, v in self.__db:
-            yield k, v
-
     def keys(self):
         return self.__db.keys()
-
-    def values(self):
-        return self.__db.values()
 
 
 class SQLiteLSMStore(Store):
@@ -148,7 +142,7 @@ class SQLiteLSMStore(Store):
         self.dbdir = configuration
 
     def __get_identifier(self):
-        return self.__identifier
+        return self.__identifier  # pragma: no cover
 
     identifier = property(__get_identifier)
 
@@ -166,7 +160,7 @@ class SQLiteLSMStore(Store):
         dbpathname = os.path.abspath(self.path).encode("utf-8")
         # Help the user to avoid writing over an existing leveldb database
         if self.should_create is True:
-            if os.path.exists(dbpathname):
+            if os.path.exists(dbpathname) and os.listdir(dbpathname) != []:
                 raise Exception(
                     f"Database {dbpathname} aready exists, please move or delete it."
                 )
@@ -257,6 +251,7 @@ class SQLiteLSMStore(Store):
 
     def dumpdb(self):
 
+        dump = "\n**** Dumping database:\n"
         dbs = {
             "self.__contexts": self.__contexts,
             "self.__namespace": self.__namespace,
@@ -264,14 +259,12 @@ class SQLiteLSMStore(Store):
             "self.__k2i": self.__k2i,
             "self.__i2k": self.__i2k,
         }
-        logger.debug("\n**** Dumping database:\n")
-        for k, v in dbs:
-            if isinstance(v, (list, dict)):
-                logger.debug(f"{k}: {v}")
-            else:
-                logger.debug(f"db: {k}")
-                for key, value in v:
-                    logger.debug(f"\t{key}: {value}")
+
+        for k, v in dbs.items():
+            dump += f"db: {k}\n"
+            for key, value in v:
+                dump += f"\t{key}: {value}\n"
+        return dump
 
     def close(self, commit_pending_transaction=False):
         self.__open = False
@@ -332,17 +325,16 @@ class SQLiteLSMStore(Store):
             cspo.put(f"{c}^{s}^{p}^{o}^".encode(), b"")
             cpos.put(f"{c}^{p}^{o}^{s}^".encode(), b"")
             cosp.put(f"{c}^{o}^{s}^{p}^".encode(), b"")
-            if not quoted:
+            if not quoted:  # pragma NO COVER
                 cspo.put(f"^{s}^{p}^{o}^".encode(), contexts_value)
                 cpos.put(f"^{p}^{o}^{s}^".encode(), contexts_value)
                 cosp.put(f"^{o}^{s}^{p}^".encode(), contexts_value)
-
             # self.__needs_sync = True
 
         else:
             pass  # already have this triple, ignoring")
 
-    def __remove(self, spo, c, quoted=False):
+    def __remove(self, spo, c):
         s, p, o = spo
         cspo, cpos, cosp = self.__indices
         contexts_value = cspo.get(
@@ -355,20 +347,17 @@ class SQLiteLSMStore(Store):
         contexts_value = "^".encode("latin-1").join(contexts)
         for i, _to_key, _from_key in self.__indices_info:
             i.delete(_to_key((s, p, o), c))
-        if not quoted:
-            if contexts_value:
-                for i, _to_key, _from_key in self.__indices_info:
-                    i.put(
-                        _to_key((s, p, o), "".encode("latin-1")),
-                        contexts_value,
-                    )
 
-            else:
-                for i, _to_key, _from_key in self.__indices_info:
-                    try:
-                        i.delete(_to_key((s, p, o), "".encode("latin-1")))
-                    except Exception:
-                        pass  # FIXME okay to ignore these?
+        if contexts_value:
+            for i, _to_key, _from_key in self.__indices_info:
+                i.put(
+                    _to_key((s, p, o), "".encode("latin-1")),
+                    contexts_value,
+                )
+
+        else:
+            for i, _to_key, _from_key in self.__indices_info:
+                i.delete(_to_key((s, p, o), "".encode("latin-1")))
 
     def remove(self, spo, context):
         subject, predicate, object = spo
@@ -422,15 +411,7 @@ class SQLiteLSMStore(Store):
 
             if context is not None:
                 if subject is None and predicate is None and object is None:
-                    # TODO: also if context becomes empty and not just on
-                    # remove((None, None, None), c)
-                    try:
-                        self.__contexts.delete(_to_string(context).encode())
-                    except Exception as e:  # pragma: NO COVER
-                        print(
-                            "%s, Failed to delete %s" % (e, context)
-                        )  # pragma: NO COVER
-                        pass  # pragma: NO COVER
+                    self.__contexts.delete(_to_string(context).encode())
 
             # self.__needs_sync = needs_sync
 
@@ -441,8 +422,8 @@ class SQLiteLSMStore(Store):
         subject, predicate, object = spo
 
         if context is not None:
-            if context == self:
-                context = None
+            if context in [self.identifier, self]:
+                context = None  # pragma: no cover
 
         # _from_string = self._from_string ## UNUSED
         index, prefix, from_key, results_from_key = self.__lookup(
@@ -497,31 +478,30 @@ class SQLiteLSMStore(Store):
         ]:
             yield prefix, URIRef(namespace)
 
-    @lru_cache(maxsize=5000)
-    def __get_context(self, ident):
-        logger.debug(f"get context {ident}")
-        return self.__contexts.get(ident) or {}
+    # @lru_cache(maxsize=5000)
+    # def __get_context(self, ident):
+    #     return self.__contexts.get(ident) or {}
 
-    def __set_context(self, ident, g):
-        logger.debug(f"set context {ident} for {g}")
-        self.__contexts.out(ident.encode(), g)
+    # def __set_context(self, ident, g):
+    #     self.__contexts.put(ident.encode(), g)
 
     def contexts(self, triple=None):
         _from_string = self._from_string
         _to_string = self._to_string
+
+        cxts = None
 
         if triple:
             s, p, o = triple
             s = _to_string(s)
             p = _to_string(p)
             o = _to_string(o)
-            contexts = self.__indices[0].get(f"^{s}^{p}^{o}^".encode())
+            cxts = self.__indices[0].get(f"^{s}^{p}^{o}^".encode())
 
-            if contexts:
-                for c in contexts.split("^".encode("latin-1")):
-                    if c:
-                        yield _from_string(c)
-
+        if cxts:
+            for c in cxts.split("^".encode("latin-1")):
+                if c:
+                    yield _from_string(c)
         else:
             for k in self.__contexts.keys():
                 yield _from_string(k)
@@ -543,7 +523,7 @@ class SQLiteLSMStore(Store):
             val = self._loads(k)
             return val
         else:
-            raise Exception(f"Key for {i} is None")
+            raise Exception(f"Key for {i} is None")  # pragma: no cover
 
     @lru_cache(maxsize=5000)
     def _to_string(self, term):
@@ -553,8 +533,8 @@ class SQLiteLSMStore(Store):
         k = self._dumps(term)
         try:
             i = self.__k2i.get(k)
-        except KeyError:
-            i = None
+        except KeyError:  # pragma: no cover
+            i = None  # pragma: no cover
 
         if i is None:  # (from BdbApi)
             # Does not yet exist, increment refcounter and create
@@ -564,7 +544,7 @@ class SQLiteLSMStore(Store):
             self.__k2i.put(k, i.encode())
             self.__k2i.put(b"__terms__", str(self._terms).encode())
         else:
-            i = i.decode()
+            i = i.decode()  # pragma: no cover
         return i
 
     def __lookup(self, spo, context):
@@ -583,25 +563,11 @@ class SQLiteLSMStore(Store):
             i += 4
             object = _to_string(object)
         index, prefix_func, from_key, results_from_key = self.__lookup_dict[i]
-        # DEBUG
-        try:
-            prefix = "^".join(
-                prefix_func((subject, predicate, object), context)
-            ).encode("utf-8")
-        except Exception as e:
-            raise Exception(
-                "{}: {} {} - {} {} - {} {} - {} {}".format(
-                    e,
-                    subject,
-                    type(subject),
-                    predicate,
-                    type(predicate),
-                    object,
-                    type(object),
-                    context,
-                    type(context),
-                )
-            )
+
+        prefix = "^".join(
+            prefix_func((subject, predicate, object), context)
+        ).encode("utf-8")
+
         return index, prefix, from_key, results_from_key
 
 
@@ -653,7 +619,7 @@ def results_from_key_func(i, from_string):
             o = from_string(parts[(3 - i + 2) % 3 + 1])
         else:
             o = object
-        return (
+        return (  # pragma NO COVER
             (s, p, o),
             (
                 from_string(c)
@@ -674,38 +640,3 @@ def readable_index(i):
     if i & 4:
         o = "o"
     return f"{s},{p},{o}"
-
-
-# # To facilitate TDD :)
-# # ====================
-# storename = "SQLiteStore"
-# storetest = True
-# configString = os.path.join(tempfile.gettempdir(), "test_leveldb")
-
-
-# # @unittest.skip("WIP")
-# class SQLiteStoreTDD(unittest.TestCase):
-#     def setUp(self):
-#         from rdflib import Graph
-
-#         store = "SQLiteStore"
-#         self.graph = Graph(store=store)
-#         self.path = configString
-#         self.graph.open(self.path, create=True)
-
-#     def tearDown(self):
-#         self.graph.close()
-#         self.graph.destroy(self.path)
-
-#     def test_namespaces(self):
-#         self.graph.bind("dc", "http://http://purl.org/dc/elements/1.1/")
-#         self.graph.bind("foaf", "http://xmlns.com/foaf/0.1/")
-#         self.assertTrue(len(list(self.graph.namespaces())) == 6)
-#         self.assertIn(
-#             ("foaf", URIRef("http://xmlns.com/foaf/0.1/")),
-#             list(self.graph.namespaces()),
-#         )
-
-
-if __name__ == "__main__":
-    unittest.main()
