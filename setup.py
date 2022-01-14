@@ -68,8 +68,7 @@ setup(
     maintainer="Graham Higgins",
     maintainer_email="gjhiggins@gmail.com",
     url="https://github.com/RDFLib/rdflib-sqlitelsm",
-    # license="bsd-3-clause",
-    license="BSD",
+    license="bsd-3-clause",
     platforms=["any"],
     python_requires=">=3.7",
     classifiers=[
