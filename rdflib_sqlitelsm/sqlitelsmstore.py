@@ -62,8 +62,6 @@ whereas LSM offers an interator:
 
 """
 import os
-import unittest
-import tempfile
 import logging
 from functools import lru_cache
 from rdflib.store import Store, VALID_STORE, NO_STORE
@@ -279,7 +277,6 @@ class SQLiteLSMStore(Store):
 
     def destroy(self, configuration=""):
         assert self.__open is False, "The Store must be closed."
-        import os
 
         path = configuration or self.dbdir
         # logger.warning(f"path for destruction: {path}")
@@ -386,7 +383,6 @@ class SQLiteLSMStore(Store):
                 # self.__needs_sync = True
 
         else:
-            cspo, cpos, cosp = self.__indices
             index, prefix, from_key, results_from_key = self.__lookup(
                 (subject, predicate, object), context
             )
