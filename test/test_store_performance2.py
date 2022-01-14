@@ -22,16 +22,16 @@ _:foo a rdfs:Class .
 :a :d :c .
 """
 
-michel = URIRef("urn:michel")
-tarek = URIRef("urn:tarek")
-bob = URIRef("urn:bob")
-likes = URIRef("urn:likes")
-hates = URIRef("urn:hates")
-pizza = URIRef("urn:pizza")
-cheese = URIRef("urn:cheese")
+michel = URIRef("urn:example:michel")
+tarek = URIRef("urn:example:tarek")
+bob = URIRef("urn:example:bob")
+likes = URIRef("urn:example:likes")
+hates = URIRef("urn:example:hates")
+pizza = URIRef("urn:example:pizza")
+cheese = URIRef("urn:example:cheese")
 
-graphuri = URIRef("urn:graph")
-othergraphuri = URIRef("urn:othergraph")
+graphuri = URIRef("urn:example:graph")
+othergraphuri = URIRef("urn:example:othergraph")
 
 
 class StoreTestCase(unittest.TestCase):
@@ -92,7 +92,9 @@ class StoreTestCase(unittest.TestCase):
         self.assertEqual(3, len(g), "graph contains 3 triples")
         self.assertEqual(1, len(g2), "other graph contains 1 triple")
 
-        r = g.query("SELECT * WHERE { ?s <urn:likes> <urn:pizza> . }")
+        r = g.query(
+            "SELECT * WHERE { ?s <urn:example:likes> <urn:example:pizza> . }"
+        )
         self.assertEqual(2, len(list(r)), "two people like pizza")
 
         r = g.triples((None, likes, pizza))
@@ -100,7 +102,7 @@ class StoreTestCase(unittest.TestCase):
 
         # Test initBindings
         r = g.query(
-            "SELECT * WHERE { ?s <urn:likes> <urn:pizza> . }",
+            "SELECT * WHERE { ?s <urn:example:likes> <urn:example:pizza> . }",
             initBindings={"s": tarek},
         )
         self.assertEqual(1, len(list(r)), "i was asking only about tarek")
@@ -113,7 +115,9 @@ class StoreTestCase(unittest.TestCase):
 
         g2.add((tarek, likes, pizza))
         g.remove((tarek, likes, pizza))
-        r = g.query("SELECT * WHERE { ?s <urn:likes> <urn:pizza> . }")
+        r = g.query(
+            "SELECT * WHERE { ?s <urn:example:likes> <urn:example:pizza> . }"
+        )
         t1 = time()
         log.debug(f"testSimpleGraph {self.store}: {t1 - t0:.5f}")
 
@@ -145,11 +149,13 @@ class StoreTestCase(unittest.TestCase):
             "%s" % list(self.graph),
         )
 
-        r = self.graph.query("SELECT * WHERE { ?s <urn:likes> <urn:pizza> . }")
+        r = self.graph.query(
+            "SELECT * WHERE { ?s <urn:example:likes> <urn:example:pizza> . }"
+        )
         self.assertEqual(2, len(list(r)), "two people like pizza")
 
         r = self.graph.query(
-            "SELECT * WHERE { ?s <urn:likes> <urn:pizza> . }",
+            "SELECT * WHERE { ?s <urn:example:likes> <urn:example:pizza> . }",
             initBindings={"s": tarek},
         )
         self.assertEqual(1, len(list(r)), "i was asking only about tarek")
@@ -162,7 +168,9 @@ class StoreTestCase(unittest.TestCase):
 
         g2.remove((bob, likes, pizza))
 
-        r = self.graph.query("SELECT * WHERE { ?s <urn:likes> <urn:pizza> . }")
+        r = self.graph.query(
+            "SELECT * WHERE { ?s <urn:example:likes> <urn:example:pizza> . }"
+        )
         self.assertEqual(1, len(list(r)), "only tarek likes pizza")
         t1 = time()
         log.debug(f"testConjunctiveDefault {self.store}: {t1 - t0:.5f}")
@@ -171,7 +179,7 @@ class StoreTestCase(unittest.TestCase):
     def testUpdate(self):
         t0 = time()
         self.graph.update(
-            "INSERT DATA { GRAPH <urn:graph> { <urn:michel> <urn:likes> <urn:pizza> . } }"
+            "INSERT DATA { GRAPH <urn:example:graph> { <urn:example:michel> <urn:example:likes> <urn:example:pizza> . } }"
         )
 
         g = self.graph.get_context(graphuri)
@@ -184,7 +192,7 @@ class StoreTestCase(unittest.TestCase):
         t0 = time()
         self.graph.update(
             "INSERT DATA { GRAPH ns:graph { ns:michel ns:likes ns:pizza . } }",
-            initNs={"ns": URIRef("urn:")},
+            initNs={"ns": URIRef("urn:example:")},
         )
 
         g = self.graph.get_context(graphuri)
@@ -202,9 +210,9 @@ class StoreTestCase(unittest.TestCase):
         self.graph.update(
             "INSERT { GRAPH <urn:graph> { ?a ?b ?c . } } WherE { }",
             initBindings={
-                "a": URIRef("urn:michel"),
-                "b": URIRef("urn:likes"),
-                "c": URIRef("urn:pizza"),
+                "a": URIRef("urn:example:michel"),
+                "b": URIRef("urn:example:likes"),
+                "c": URIRef("urn:example:pizza"),
             },
         )
 
@@ -224,10 +232,10 @@ class StoreTestCase(unittest.TestCase):
             "INSERT { GRAPH <urn:graph> { ?a ?b ?c . } } WHERE { };"
             "INSERT { GRAPH <urn:graph> { ?d ?b ?c . } } WHERE { }",
             initBindings={
-                "a": URIRef("urn:michel"),
-                "b": URIRef("urn:likes"),
-                "c": URIRef("urn:pizza"),
-                "d": URIRef("urn:bob"),
+                "a": URIRef("urn:example:michel"),
+                "b": URIRef("urn:example:likes"),
+                "c": URIRef("urn:example:pizza"),
+                "d": URIRef("urn:example:bob"),
             },
         )
 
@@ -246,7 +254,7 @@ class StoreTestCase(unittest.TestCase):
     def testNamedGraphUpdate(self):
         t0 = time()
         g = self.graph.get_context(graphuri)
-        r1 = "INSERT DATA { <urn:michel> <urn:likes> <urn:pizza> }"
+        r1 = "INSERT DATA { <urn:example:michel> <urn:example:likes> <urn:example:pizza> }"
         g.update(r1)
         self.assertEqual(
             set(g.triples((None, None, None))),
@@ -255,8 +263,8 @@ class StoreTestCase(unittest.TestCase):
         )
 
         r2 = (
-            "DELETE { <urn:michel> <urn:likes> <urn:pizza> } "
-            + "INSERT { <urn:bob> <urn:likes> <urn:pizza> } WHERE {}"
+            "DELETE { <urn:example:michel> <urn:example:likes> <urn:example:pizza> } "
+            + "INSERT { <urn:example:bob> <urn:example:likes> <urn:example:pizza> } WHERE {}"
         )
         g.update(r2)
         self.assertEqual(
@@ -264,7 +272,7 @@ class StoreTestCase(unittest.TestCase):
             set([(bob, likes, pizza)]),
             "only bob likes pizza",
         )
-        says = URIRef("urn:says")
+        says = URIRef("urn:example:says")
 
         # Strings with unbalanced curly braces
         tricky_strs = [
@@ -273,8 +281,8 @@ class StoreTestCase(unittest.TestCase):
         ]
         for tricky_str in tricky_strs:
             r3 = (
-                """INSERT { ?b <urn:says> "%s" }
-            WHERE { ?b <urn:likes> <urn:pizza>} """
+                """INSERT { ?b <urn:example:says> "%s" }
+            WHERE { ?b <urn:example:likes> <urn:example:pizza>} """
                 % tricky_str
             )
             g.update(r3)
@@ -302,7 +310,8 @@ class StoreTestCase(unittest.TestCase):
 
         r4 = "\n".join(
             [
-                "INSERT DATA { <urn:michel> <urn:says> %s } ;" % s
+                "INSERT DATA { <urn:example:michel> <urn:example:says> %s } ;"
+                % s
                 for s in r4strings
             ]
         )
@@ -331,21 +340,21 @@ class StoreTestCase(unittest.TestCase):
         # (commenting out the end of the block).
         # The ' must not be interpreted as the start of a string, causing the }
         # in the literal to be identified as the end of the block.
-        r5 = """INSERT DATA { <urn:michel> <urn:hates> <urn:foo'bar?baz;a=1&b=2#fragment>, "'}" }"""
+        r5 = """INSERT DATA { <urn:example:michel> <urn:hates> <urn:example:foo'bar?baz;a=1&b=2#fragment>, "'}" }"""
 
         g.update(r5)
         values = set()
         for v in g.objects(michel, hates):
             values.add(str(v))
         self.assertEqual(
-            values, set(["urn:foo'bar?baz;a=1&b=2#fragment", "'}"])
+            values, set(["urn:example:foo'bar?baz;a=1&b=2#fragment", "'}"])
         )
 
         # Comments
         r6 = """
             INSERT DATA {
-                <urn:bob> <urn:hates> <urn:bob> . # No closing brace: }
-                <urn:bob> <urn:hates> <urn:michel>.
+                <urn:example:bob> <urn:hates> <urn:example:bob> . # No closing brace: }
+                <urn:example:bob> <urn:hates> <urn:example:michel>.
             }
         #Final { } comment"""
 

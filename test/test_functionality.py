@@ -21,16 +21,16 @@ _:foo a rdfs:Class .
 :a :d :c .
 """
 
-michel = URIRef("urn:michel")
-tarek = URIRef("urn:tarek")
-bob = URIRef("urn:bob")
-likes = URIRef("urn:likes")
-hates = URIRef("urn:hates")
-pizza = URIRef("urn:pizza")
-cheese = URIRef("urn:cheese")
+michel = URIRef("urn:example:michel")
+tarek = URIRef("urn:example:tarek")
+bob = URIRef("urn:example:bob")
+likes = URIRef("urn:example:likes")
+hates = URIRef("urn:example:hates")
+pizza = URIRef("urn:example:pizza")
+cheese = URIRef("urn:example:cheese")
 
-graphuri = URIRef("urn:graph")
-othergraphuri = URIRef("urn:othergraph")
+graphuri = URIRef("urn:example:graph")
+othergraphuri = URIRef("urn:example:othergraph")
 
 
 create = True
@@ -50,7 +50,7 @@ def get_conjunctive_graph():
         graph.destroy(configuration=path)
 
 
-def testSimpleGraph(get_conjunctive_graph):
+def test_simple_graph(get_conjunctive_graph):
     cg = get_conjunctive_graph
     graph = cg.get_context(graphuri)
     graph.add((tarek, likes, pizza))
@@ -63,7 +63,9 @@ def testSimpleGraph(get_conjunctive_graph):
     assert len(graph) == 3, "graph contains 3 triples"
     assert len(g2) == 1, "other graph contains 1 triple"
 
-    r = graph.query("SELECT * WHERE { ?s <urn:likes> <urn:pizza> . }")
+    r = graph.query(
+        "SELECT * WHERE { ?s <urn:example:likes> <urn:example:pizza> . }"
+    )
     assert len(list(r)) == 2, "two people like pizza"
 
     r = graph.triples((None, likes, pizza))
@@ -71,7 +73,7 @@ def testSimpleGraph(get_conjunctive_graph):
 
     # Test initBindings
     r = graph.query(
-        "SELECT * WHERE { ?s <urn:likes> <urn:pizza> . }",
+        "SELECT * WHERE { ?s <urn:example:likes> <urn:example:pizza> . }",
         initBindings={"s": tarek},
     )
     assert len(list(r)) == 1, "i was asking only about tarek"
@@ -84,10 +86,12 @@ def testSimpleGraph(get_conjunctive_graph):
 
     g2.add((tarek, likes, pizza))
     graph.remove((tarek, likes, pizza))
-    r = graph.query("SELECT * WHERE { ?s <urn:likes> <urn:pizza> . }")
+    r = graph.query(
+        "SELECT * WHERE { ?s <urn:example:likes> <urn:example:pizza> . }"
+    )
 
 
-def testConjunctiveDefault(get_conjunctive_graph):
+def test_conjunctive_default(get_conjunctive_graph):
     cg = get_conjunctive_graph
     graph = cg.get_context(graphuri)
 
@@ -114,11 +118,13 @@ def testConjunctiveDefault(get_conjunctive_graph):
         len(cg) == 3
     ), f"default union graph should contain three triples but contains {list(cg)}:\n"
 
-    r = cg.query("SELECT * WHERE { ?s <urn:likes> <urn:pizza> . }")
+    r = cg.query(
+        "SELECT * WHERE { ?s <urn:example:likes> <urn:example:pizza> . }"
+    )
     assert len(list(r)) == 2, "two people like pizza"
 
     r = graph.query(
-        "SELECT * WHERE { ?s <urn:likes> <urn:pizza> . }",
+        "SELECT * WHERE { ?s <urn:example:likes> <urn:example:pizza> . }",
         initBindings={"s": tarek},
     )
     assert len(list(r)) == 1, "i was asking only about tarek"
@@ -131,25 +137,27 @@ def testConjunctiveDefault(get_conjunctive_graph):
 
     g2.remove((bob, likes, pizza))
 
-    r = graph.query("SELECT * WHERE { ?s <urn:likes> <urn:pizza> . }")
+    r = graph.query(
+        "SELECT * WHERE { ?s <urn:example:likes> <urn:example:pizza> . }"
+    )
     assert len(list(r)) == 1, "only tarek likes pizza"
 
 
-def testUpdate(get_conjunctive_graph):
+def testU_update(get_conjunctive_graph):
     cg = get_conjunctive_graph
     cg.update(
-        "INSERT DATA { GRAPH <urn:graph> { <urn:michel> <urn:likes> <urn:pizza> . } }"
+        "INSERT DATA { GRAPH <urn:example:graph> { <urn:example:michel> <urn:example:likes> <urn:example:pizza> . } }"
     )
 
     graph = cg.get_context(graphuri)
     assert len(graph) == 1, "graph contains 1 triple"
 
 
-def testUpdateWithInitNs(get_conjunctive_graph):
+def test_update_with_initns(get_conjunctive_graph):
     cg = get_conjunctive_graph
     cg.update(
         "INSERT DATA { GRAPH ns:graph { ns:michel ns:likes ns:pizza . } }",
-        initNs={"ns": URIRef("urn:")},
+        initNs={"ns": URIRef("urn:example:")},
     )
 
     graph = cg.get_context(graphuri)
@@ -158,14 +166,14 @@ def testUpdateWithInitNs(get_conjunctive_graph):
     ), "only michel likes pizza"
 
 
-def testUpdateWithInitBindings(get_conjunctive_graph):
+def test_update_with_initbindings(get_conjunctive_graph):
     cg = get_conjunctive_graph
     cg.update(
-        "INSERT { GRAPH <urn:graph> { ?a ?b ?c . } } WherE { }",
+        "INSERT { GRAPH <urn:example:graph> { ?a ?b ?c . } } WherE { }",
         initBindings={
-            "a": URIRef("urn:michel"),
-            "b": URIRef("urn:likes"),
-            "c": URIRef("urn:pizza"),
+            "a": URIRef("urn:example:michel"),
+            "b": URIRef("urn:example:likes"),
+            "c": URIRef("urn:example:pizza"),
         },
     )
 
@@ -175,16 +183,16 @@ def testUpdateWithInitBindings(get_conjunctive_graph):
     ), "only michel likes pizza"
 
 
-def testMultipleUpdateWithInitBindings(get_conjunctive_graph):
+def test_multiple_update_with_initbindings(get_conjunctive_graph):
     cg = get_conjunctive_graph
     cg.update(
-        "INSERT { GRAPH <urn:graph> { ?a ?b ?c . } } WHERE { };"
-        "INSERT { GRAPH <urn:graph> { ?d ?b ?c . } } WHERE { }",
+        "INSERT { GRAPH <urn:example:graph> { ?a ?b ?c . } } WHERE { };"
+        "INSERT { GRAPH <urn:example:graph> { ?d ?b ?c . } } WHERE { }",
         initBindings={
-            "a": URIRef("urn:michel"),
-            "b": URIRef("urn:likes"),
-            "c": URIRef("urn:pizza"),
-            "d": URIRef("urn:bob"),
+            "a": URIRef("urn:example:michel"),
+            "b": URIRef("urn:example:likes"),
+            "c": URIRef("urn:example:pizza"),
+            "d": URIRef("urn:example:bob"),
         },
     )
 
@@ -194,24 +202,24 @@ def testMultipleUpdateWithInitBindings(get_conjunctive_graph):
     ), "michel and bob like pizza"
 
 
-def testNamedGraphUpdate(get_conjunctive_graph):
+def test_named_graphU_update(get_conjunctive_graph):
     cg = get_conjunctive_graph
     graph = cg.get_context(graphuri)
-    r1 = "INSERT DATA { <urn:michel> <urn:likes> <urn:pizza> }"
+    r1 = "INSERT DATA { <urn:example:michel> <urn:example:likes> <urn:example:pizza> }"
     graph.update(r1)
     assert set(graph.triples((None, None, None))) == set(
         [(michel, likes, pizza)]
     ), "only michel likes pizza"
 
     r2 = (
-        "DELETE { <urn:michel> <urn:likes> <urn:pizza> } "
-        + "INSERT { <urn:bob> <urn:likes> <urn:pizza> } WHERE {}"
+        "DELETE { <urn:example:michel> <urn:example:likes> <urn:example:pizza> } "
+        + "INSERT { <urn:example:bob> <urn:example:likes> <urn:example:pizza> } WHERE {}"
     )
     graph.update(r2)
     assert set(graph.triples((None, None, None))) == set(
         [(bob, likes, pizza)]
     ), "only bob likes pizza"
-    says = URIRef("urn:says")
+    says = URIRef("urn:example:says")
 
     # Strings with unbalanced curly braces
     tricky_strs = [
@@ -219,8 +227,8 @@ def testNamedGraphUpdate(get_conjunctive_graph):
     ]
     for tricky_str in tricky_strs:
         r3 = (
-            """INSERT { ?b <urn:says> "%s" }
-        WHERE { ?b <urn:likes> <urn:pizza>} """
+            """INSERT { ?b <urn:example:says> "%s" }
+        WHERE { ?b <urn:example:likes> <urn:example:pizza>} """
             % tricky_str
         )
         graph.update(r3)
@@ -247,7 +255,10 @@ def testNamedGraphUpdate(get_conjunctive_graph):
     r4strings.append("'''10: ad adsfj \n { \n sadfj'''")
 
     r4 = "\n".join(
-        ["INSERT DATA { <urn:michel> <urn:says> %s } ;" % s for s in r4strings]
+        [
+            "INSERT DATA { <urn:example:michel> <urn:example:says> %s } ;" % s
+            for s in r4strings
+        ]
     )
     graph.update(r4)
     values = set()
@@ -269,19 +280,19 @@ def testNamedGraphUpdate(get_conjunctive_graph):
     # (commenting out the end of the block).
     # The ' must not be interpreted as the start of a string, causing the }
     # in the literal to be identified as the end of the block.
-    r5 = """INSERT DATA { <urn:michel> <urn:hates> <urn:foo'bar?baz;a=1&b=2#fragment>, "'}" }"""
+    r5 = """INSERT DATA { <urn:example:michel> <urn:example:hates> <urn:example:foo'bar?baz;a=1&b=2#fragment>, "'}" }"""
 
     graph.update(r5)
     values = set()
     for v in graph.objects(michel, hates):
         values.add(str(v))
-    assert values == set(["urn:foo'bar?baz;a=1&b=2#fragment", "'}"])
+    assert values == set(["urn:example:foo'bar?baz;a=1&b=2#fragment", "'}"])
 
     # Comments
     r6 = """
         INSERT DATA {
-            <urn:bob> <urn:hates> <urn:bob> . # No closing brace: }
-            <urn:bob> <urn:hates> <urn:michel>.
+            <urn:example:bob> <urn:example:hates> <urn:example:bob> . # No closing brace: }
+            <urn:example:bob> <urn:example:hates> <urn:example:michel>.
         }
     #Final { } comment"""
 
@@ -292,7 +303,7 @@ def testNamedGraphUpdate(get_conjunctive_graph):
     assert values == set([bob, michel])
 
 
-def testNamedGraphUpdateWithInitBindings(get_conjunctive_graph):
+def test_named_graph_update_with_initbindings(get_conjunctive_graph):
     cg = get_conjunctive_graph
     graph = cg.get_context(graphuri)
     r = "INSERT { ?a ?b ?c } WHERE {}"
@@ -302,7 +313,7 @@ def testNamedGraphUpdateWithInitBindings(get_conjunctive_graph):
     ), "only michel likes pizza"
 
 
-def testEmptyLiteral(get_conjunctive_graph):
+def test_empty_literal(get_conjunctive_graph):
     # test for https://github.com/RDFLib/rdflib/issues/457
     # also see test_issue457.py which is sparql store independent!
     cg = get_conjunctive_graph
@@ -319,7 +330,7 @@ def testEmptyLiteral(get_conjunctive_graph):
     assert Literal("") == o, repr(o)
 
 
-def testN3Store(get_conjunctive_graph):
+def test_n3_store(get_conjunctive_graph):
     graph = get_conjunctive_graph
     graph.parse(data=testN3, format="n3")
     formulaA = BNode()

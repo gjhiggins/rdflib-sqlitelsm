@@ -15,13 +15,13 @@ logger.setLevel(logging.DEBUG)
 storename = "SQLiteLSM"
 storetest = True
 
-michel = URIRef("urn:michel")
-bob = URIRef("urn:bob")
-cheese = URIRef("urn:cheese")
-likes = URIRef("urn:likes")
-pizza = URIRef("urn:pizza")
-context1 = URIRef("urn:graph1")
-context2 = URIRef("urn:graph2")
+michel = URIRef("urn:example:michel")
+bob = URIRef("urn:example:bob")
+cheese = URIRef("urn:example:cheese")
+likes = URIRef("urn:example:likes")
+pizza = URIRef("urn:example:pizza")
+context1 = URIRef("urn:example:graph1")
+context2 = URIRef("urn:example:graph2")
 
 store = "SQLiteLSM"
 path = os.path.join(tempfile.gettempdir(), f"test_{store.lower()}")
@@ -106,7 +106,7 @@ def test_sqlitelsm_graph_escape_quoting(get_graph):
         )
     )
     graph.commit()
-    assert ("That’s a Literal!!") in graph.serialize(format="xml")
+    assert "That’s a Literal!!" in graph.serialize(format="xml")
 
 
 def test_sqlitelsm_graph_namespaces(get_graph):
@@ -121,7 +121,12 @@ def test_sqlitelsm_graph_namespaces(get_graph):
 
 
 def test_sqlitelsm_graph_readable_index():
+    assert readable_index(1) == "s,?,?"
+    assert readable_index(11) == "s,p,?"
     assert readable_index(111) == "s,p,o"
+    assert readable_index(2) == "?,p,?"
+    assert readable_index(3) == "s,p,?"
+    assert readable_index(4) == "?,?,o"
 
 
 def test_sqlitelsm_graph_reopening_db(get_graph):
@@ -231,7 +236,7 @@ def test_sqlitelsm_conjunctive_graph_nquads_default_graph(
     # Three contexts@ the default, the publicID and one from the quad
     assert (
         len(list(graph.contexts())) == 3
-    ), f"contexts:\n{pformat(list(graph.contexts()))}"
+    ), f"contexts:\n{list(graph.contexts())}"
 
     assert len(graph.get_context(publicID)) == 2, len(
         graph.get_context(publicID)

@@ -1,159 +1,216 @@
-import unittest
-import gc
+import pytest
 import os
-import logging
+import gc
 from time import time
+from random import random
+
 import tempfile
-from rdflib import Graph
+import shutil
+import logging
+
+from typing import Optional
+
+from rdflib import Graph, ConjunctiveGraph, URIRef, plugin
+from rdflib import FOAF, RDF
 
 logging.basicConfig(level=logging.ERROR, format="%(message)s")
-log = logging.getLogger(__name__)
-log.setLevel(logging.DEBUG)
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 
-class StoreTestCase(unittest.TestCase):
-    """
-    Test case for testing store performance... probably should be
-    something other than a unit test... but for now we'll add it as a
-    unit test.
-    """
-
-    store = "Memory"
-    path = None
-    storetest = True
-    performancetest = True
-
-    def setUp(self):
-        self.gcold = gc.isenabled()
-        gc.collect()
-        gc.disable()
-
-        self.graph = Graph(store=self.store)
-
-        self.path = os.path.join(
-            tempfile.gettempdir(), f"test_{self.store.lower()}"
-        )
-        self.graph.open(self.path, create=True)
-        self.input = Graph()
-
-    def tearDown(self):
-        self.graph.close()
-        if self.gcold:
-            gc.enable()
-        # TODO: delete a_tmp_dir
-        self.graph.close()
-        del self.graph
-
-        # Remove test detritus
-        if hasattr(self, "path") and self.path is not None:
-            if os.path.exists(self.path):
-                if os.path.isdir(self.path):
-                    import shutil
-
-                    shutil.rmtree(self.path)
-                elif len(self.path.split(":")) == 1:
-                    os.unlink(self.path)
-                else:
-                    os.remove(self.path)
-
-    def testTime(self):
-        fixturelist = {
-            "500triples": 691,
-            "1ktriples": 1285,
-            "2ktriples": 2006,
-            "3ktriples": 3095,
-            "5ktriples": 5223,
-            "10ktriples": 10303,
-            "25ktriples": 25161,
-            "50ktriples": 50168,
-        }
-        log.debug(f"{self.store}: ")
-        for i in fixturelist.keys():
-            inputloc = os.getcwd() + f"/test/sp2b/{i}.n3"
-            # Clean up graphs so that BNodes in input data
-            # won't create random results
-            self.input = Graph()
-            self.graph.remove((None, None, None))
-
-            res = self._testInput(inputloc)
-
-            log.debug(f"Loaded {len(self.graph):5d} triples in {res.strip()}s")
-
-            self.assertEqual(len(self.graph), fixturelist[i], len(self.graph))
-
-        # Read triples back into memory from store
-        self.graph.close()
-        self.graph.open(self.path, create=False)
-
-        t0 = time()
-        for _i in self.graph.triples((None, None, None)):
-            pass
-
-        t1 = time()
-        log.debug(f"Re-reading: {t1 - t0:.3f}s")
-
-        self.assertEqual(
-            len(self.graph), sorted(fixturelist.values())[-1], len(self.graph)
-        )
-
-        # Delete the store by removing triples
-        t0 = time()
-        self.graph.remove((None, None, None))
-        self.assertEqual(len(self.graph), 0)
-        t1 = time()
-        log.debug(f"Deleting  : {t1 - t0:.3f}s")
-
-    def _testInput(self, inputloc):
-        # number = 1
-        store = self.graph
-        self.input.parse(location=inputloc, format="n3")
-
-        # def add_from_input():
-        #     for t in self.input:
-        #         store.add(t)
-
-        # it = itertools.repeat(None, number)
-        t0 = time()
-        # for _i in it:
-        #     add_from_input()
-        #     for s in store.subjects(RDF.type, None):
-        #         for t in store.triples((s, None, None)):
-        #             pass
-
-        store.addN(tuple(t) + (store,) for t in self.input)
-        t1 = time()
-        return f"{t1 - t0:.3f}"
+def random_uri():
+    return URIRef("%s" % random())
 
 
-class SQLiteLSMStoreTestCase(StoreTestCase, unittest.TestCase):
+fixturelist = [
+    ("500triples", (691, 58)),
+    ("1ktriples", (1285, 121)),
+    ("2ktriples", (2006, 191)),
+    ("3ktriples", (3095, 289)),
+    ("5ktriples", (5223, 497)),
+    ("10ktriples", (10303, 949)),
+    ("25ktriples", (25161, 2162)),
+    ("50ktriples", (50168, 4165)),
+    ("100ktriples", (100073, 8254)),
+    ("250ktriples", (250128, 20144)),
+    ("500ktriples", (500043, 40434)),
+]
+
+
+q1 = """PREFIX rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX dc:      <http://purl.org/dc/elements/1.1/>
+PREFIX dcterms: <http://purl.org/dc/terms/>
+PREFIX bench:   <http://localhost/vocabulary/bench/>
+PREFIX xsd:     <http://www.w3.org/2001/XMLSchema#>
+
+SELECT ?yr
+WHERE {
+  ?journal rdf:type bench:Journal .
+  ?journal dc:title "Journal 1 (1940)"^^xsd:string .
+  ?journal dcterms:issued ?yr
+}
+
+"""
+
+q2 = """PREFIX rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+
+SELECT DISTINCT ?predicate
+WHERE {
+  {
+    ?person rdf:type foaf:Person .
+    ?subject ?predicate ?person
+  } UNION {
+    ?person rdf:type foaf:Person .
+    ?person ?predicate ?object
+  }
+}
+"""
+
+q3 = """PREFIX xsd:  <http://www.w3.org/2001/XMLSchema#>
+PREFIX rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+PREFIX dc:   <http://purl.org/dc/elements/1.1/>
+
+SELECT DISTINCT ?name
+WHERE {
+  ?erdoes rdf:type foaf:Person .
+  ?erdoes foaf:name "Paul Erdoes"^^xsd:string .
+  {
+    ?document dc:creator ?erdoes .
+    ?document dc:creator ?author .
+    ?document2 dc:creator ?author .
+    ?document2 dc:creator ?author2 .
+    ?author2 foaf:name ?name
+    FILTER (?author!=?erdoes &&
+            ?document2!=?document &&
+            ?author2!=?erdoes &&
+            ?author2!=?author)
+  } UNION {
+    ?document dc:creator ?erdoes.
+    ?document dc:creator ?author.
+    ?author foaf:name ?name
+    FILTER (?author!=?erdoes)
+  }
+}
+"""
+
+
+@pytest.fixture(scope="function")
+def get_graph(request):
     store = "SQLiteLSM"
 
-    def setUp(self):
-        self.store = "SQLiteLSM"
-        # self.path = mktemp(prefix="testsqlite")
-        StoreTestCase.setUp(self)
+    path = os.environ.get(
+        "DBURI", os.path.join(tempfile.gettempdir(), f"test_{store.lower()}")
+    )
+
+    if os.path.isdir(path):
+        shutil.rmtree(path)
+    elif os.path.exists(path):
+        os.remove(path)
+
+    gcold = gc.isenabled()
+    gc.collect()
+    gc.disable()
+
+    graph = Graph(store=store)
+
+    graph.open(path, create=True)
+
+    yield graph, path
+
+    graph.close()
+    if gcold:
+        gc.enable()
+    del graph
+
+    if os.path.isdir(path):
+        shutil.rmtree(path)
+    elif os.path.exists(path):
+        os.remove(path)
 
 
-class BerkeleyDBStoreTestCase(StoreTestCase, unittest.TestCase):
-    store = "BerkeleyDB"
+def test_timing(get_graph):
+    graph, path = get_graph
 
-    def setUp(self):
-        try:
-            import berkeleydb
+    for (k, (ntriples, nfoaf)) in fixturelist:
+        inputloc = os.getcwd() + f"/test/sp2b/{k}.n3"
+        # Clean up graphs so that BNodes in input data
+        # won't create random results
 
-            assert berkeleydb
-        except Exception:
-            return unittest.skip("Skipping BerkeleyDB test, store unavailable")
+        graph.remove((None, None, None))
 
-        self.store = "BerkeleyDB"
-        # self.path = mktemp(prefix="testbdb")
-        StoreTestCase.setUp(self)
+        t0 = time()
+        graph.parse(location=inputloc, format="n3")
+        t1 = time()
+        print("%.3g" % (t1 - t0), end=" ")
 
+        res = f"{t1 - t0:.5f}"
 
-if __name__ == "__main__":
-    if False:
-        import cProfile
+        logger.debug(f"Loaded {len(graph):5d} triples in {res.strip()}s")
 
-        cProfile.run("unittest.main()", "profile.out")
-    else:
-        unittest.main()
+        assert len(graph) == ntriples, len(graph)
+
+        graph.close()
+
+        # Read triples back into memory from store
+        t0 = time()
+        graph.open(path, create=False)
+        t1 = time()
+        assert len(graph) == ntriples, len(graph)
+        logger.debug(
+            f"Opening store containing {ntriples} triples: {t1 - t0:.5f}s"
+        )
+
+        t0 = time()
+        for triple in graph.triples((None, None, None)):
+            pass
+        t1 = time()
+        logger.debug(f"Iterating over triples: {t1 - t0:.5f}s")
+
+        t0 = time()
+        assert len(list(graph.triples((None, None, None)))) == ntriples
+        t1 = time()
+        logger.debug(f"Getting length of graph: {t1 - t0:.5f}s")
+
+        t0 = time()
+        res = graph.subjects(predicate=RDF.type, object=FOAF.Person)
+        t1 = time()
+        logger.debug(
+            f"Getting subjects of rdf:type foaf:Person: {t1 - t0:.5f}s"
+        )
+        assert len(list(res)) == nfoaf
+
+        t0 = time()
+        res = graph.query(
+            "SELECT (count(?s) as ?nfoaf) WHERE {?s rdf:type foaf:Person .}"
+        )
+        t1 = time()
+        logger.debug(
+            f"SELECTing COUNT of subjects of rdf:type foaf:Person: {t1 - t0:.5f}s"
+        )
+        assert list(res)[0].nfoaf.toPython() == nfoaf
+
+        t0 = time()
+        res = graph.query(q1)
+        t1 = time()
+        logger.debug(f"SPARQL Query 1 {t1 - t0:.5f}s")
+        assert list(res)[0].yr.toPython() == 1940
+
+        t0 = time()
+        res = graph.query(q2)
+        t1 = time()
+        logger.debug(f"SPARQL Query 2 {t1 - t0:.5f}s")
+        assert (
+            list(res)[0].predicate.toPython()
+            == "http://purl.org/dc/elements/1.1/creator"
+        )
+
+        t0 = time()
+        res = graph.query(q3)
+        t1 = time()
+        logger.debug(f"SPARQL Query 3 {t1 - t0:.5f}s")
+        assert sorted(list(res))[0].name.toPython() in [
+            "Adamanta Schlitt",
+            "Aandranee Sakamaki",
+        ]

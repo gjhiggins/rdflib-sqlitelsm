@@ -1,5 +1,6 @@
 import pytest
 import tempfile
+import shutil
 import os
 from rdflib import ConjunctiveGraph, URIRef
 from rdflib.store import VALID_STORE
@@ -8,9 +9,20 @@ from rdflib.store import VALID_STORE
 tmpdir = tempfile.gettempdir()
 path = os.path.join(tmpdir, "test_sqlitelsm")
 
+try:
+    shutil.rmtree(path)
+except Exception:
+    pass
+
 
 @pytest.fixture
 def get_conjunctive_graph():
+
+    try:
+        shutil.rmtree(path)
+    except Exception:
+        pass
+
     store_name = "SQLiteLSM"
     graph = ConjunctiveGraph(store=store_name)
     rt = graph.open(path, create=True)
@@ -31,6 +43,11 @@ def get_conjunctive_graph():
 
     graph.close()
     graph.store.destroy(configuration=path)
+
+    try:
+        shutil.rmtree(path)
+    except Exception:
+        pass
 
 
 def test_write(get_conjunctive_graph):
