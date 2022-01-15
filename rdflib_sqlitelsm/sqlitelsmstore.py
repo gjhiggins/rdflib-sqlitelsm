@@ -61,14 +61,14 @@ whereas LSM offers an interator:
 #
 
 """
-import os
 import logging
+import os
 from functools import lru_cache
-from rdflib.store import Store, VALID_STORE, NO_STORE
-from rdflib.term import URIRef
 from urllib.request import pathname2url
 
 from lsm import LSM
+from rdflib.store import NO_STORE, VALID_STORE, Store
+from rdflib.term import URIRef
 
 logging.basicConfig(level=logging.ERROR, format="%(message)s")
 logger = logging.getLogger(__name__)

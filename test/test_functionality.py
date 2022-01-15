@@ -143,7 +143,7 @@ def test_conjunctive_default(get_conjunctive_graph):
     assert len(list(r)) == 1, "only tarek likes pizza"
 
 
-def testU_update(get_conjunctive_graph):
+def test_update(get_conjunctive_graph):
     cg = get_conjunctive_graph
     cg.update(
         "INSERT DATA { GRAPH <urn:example:graph> { <urn:example:michel> <urn:example:likes> <urn:example:pizza> . } }"
@@ -202,7 +202,7 @@ def test_multiple_update_with_initbindings(get_conjunctive_graph):
     ), "michel and bob like pizza"
 
 
-def test_named_graphU_update(get_conjunctive_graph):
+def test_named_graph_update(get_conjunctive_graph):
     cg = get_conjunctive_graph
     graph = cg.get_context(graphuri)
     r1 = "INSERT DATA { <urn:example:michel> <urn:example:likes> <urn:example:pizza> }"
