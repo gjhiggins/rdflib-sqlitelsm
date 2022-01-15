@@ -58,7 +58,7 @@ whereas LSM offers an interator:
 
 # return len(
 #   [key for key in self.__indices[0][prefix:])
-#     if key.startswith(prefix)])
+#
 
 """
 import os
@@ -78,38 +78,15 @@ logger.setLevel(logging.DEBUG)
 __all__ = ["SQLiteLSMStore"]
 
 
-class DB:
-    def __init__(self, db=None):
-        self.__db = db
-
-    def get(self, key):
-        return self.__getitem__(key)
-
-    def __getitem__(self, key):
-        try:
-            return self.__db[key]
-        except KeyError:
-            return None
-
-    def __setitem__(self, key, value):
-        self.__db[key] = value
-
-    def put(self, key, value):
-        self.__setitem__(key, value)
-
-    def close(self):
-        self.__db.close()
-
-    def delete(self, key):
-        # TODO defer this to thread
-        self.__db.delete(key)
-
-    def __iter__(self):
-        for k, v in self.__db:
-            yield k, v
-
-    def keys(self):
-        return self.__db.keys()
+dbparams = dict(
+    page_size=4096,
+    block_size=4096,
+    multiple_processes=True,
+    write_safety=False,
+    autoflush=8192,
+    autocheckpoint=8192,
+    transaction_log=False,
+)
 
 
 class SQLiteLSMStore(Store):
@@ -118,7 +95,7 @@ class SQLiteLSMStore(Store):
     key/value DB.
 
     This store allows for quads as well as triples. See examples of use
-    in both the `examples.leveldb_example` and `test.test_leveldb_store`
+    in both the `examples.sqlitelsm_example` and `test.test_slitelsm_store`
     files.
 
     """
@@ -139,6 +116,15 @@ class SQLiteLSMStore(Store):
         self._dumps = self.node_pickler.dumps
         self.dbdir = configuration
 
+        self.__indices = None
+        self.__indices_info = None
+        self.__lookup_dict = None
+        self.__contexts = None
+        self.__namespace = None
+        self.__prefix = None
+        self.__k2i = None
+        self.__i2k = None
+
     def __get_identifier(self):
         return self.__identifier  # pragma: no cover
 
@@ -147,17 +133,14 @@ class SQLiteLSMStore(Store):
     def is_open(self):
         return self.__open
 
-    def open(self, path, create=False):
-        self.should_create = create
-        self.path = path
-
-        if self.__identifier is None:
-            self.__identifier = URIRef(pathname2url(os.path.abspath(path)))
-
-        # Create a prefixed database
+    def _init_db_environment(self, path, create=True):
+        """
+        Initialise the database environment prior to creating the files
+        """
         dbpathname = os.path.abspath(self.path).encode("utf-8")
-        # Help the user to avoid writing over an existing leveldb database
-        if self.should_create is True:
+        # Help the user to avoid writing over an existing database
+
+        if self.should_create:
             if os.path.exists(dbpathname) and os.listdir(dbpathname) != []:
                 raise Exception(
                     f"Database {dbpathname} aready exists, please move or delete it."
@@ -169,9 +152,8 @@ class SQLiteLSMStore(Store):
             if not os.path.exists(dbpathname):
                 return NO_STORE
             else:
-                self.dbdir = dbpathname  # .encode("utf-8")
+                self.dbdir = dbpathname
 
-        # create and open the DBs
         self.__indices = [
             None,
         ] * 3
@@ -187,7 +169,12 @@ class SQLiteLSMStore(Store):
                 ),
                 "c".encode("latin-1"),
             )
-            index = DB(LSM(os.path.join(self.dbdir, index_name + b".db")))
+
+            index = LSM(
+                os.path.join(self.dbdir, index_name + b".db"),
+                open_database=False,
+                **dbparams,
+            )
             self.__indices[i] = index
             self.__indices_info[i] = (index, to_key_func(i), from_key_func(i))
 
@@ -231,16 +218,61 @@ class SQLiteLSMStore(Store):
             )
 
         self.__lookup_dict = lookup
-        self.__contexts = DB(LSM(os.path.join(self.dbdir, b"contexts.db")))
-        self.__namespace = DB(LSM(os.path.join(self.dbdir, b"namespace.db")))
-        self.__prefix = DB(LSM(os.path.join(self.dbdir, b"prefix.db")))
-        self.__k2i = DB(LSM(os.path.join(self.dbdir, b"k2i.db")))
-        self.__i2k = DB(LSM(os.path.join(self.dbdir, b"i2k.db")))
+
+        self.__contexts = LSM(
+            os.path.join(self.dbdir, b"contexts.db"),
+            open_database=False,
+            **dbparams,
+        )
+
+        self.__namespace = LSM(
+            os.path.join(self.dbdir, b"namespace.db"),
+            open_database=False,
+            **dbparams,
+        )
+
+        self.__prefix = LSM(
+            os.path.join(self.dbdir, b"prefix.db"),
+            open_database=False,
+            **dbparams,
+        )
+
+        self.__k2i = LSM(
+            os.path.join(self.dbdir, b"k2i.db"),
+            open_database=False,
+            **dbparams,
+        )
+
+        self.__i2k = LSM(
+            os.path.join(self.dbdir, b"i2k.db"),
+            open_database=False,
+            **dbparams,
+        )
+
+    def open(self, path, create=True):
+        self.should_create = create
+        self.path = path
+
+        if self.__identifier is None:
+            self.__identifier = URIRef(pathname2url(os.path.abspath(path)))
+
+        db_env = self._init_db_environment(path, create)
+        if db_env == NO_STORE:
+            return NO_STORE
+        self.db_env = db_env
+
+        for db in self.__indices:
+            assert db.open() is True
+        assert self.__contexts.open() is True
+        assert self.__namespace.open() is True
+        assert self.__prefix.open() is True
+        assert self.__k2i.open() is True
+        assert self.__i2k.open() is True
 
         try:
-            self._terms = int(self.__k2i.get(b"__terms__"))
+            self._terms = int(self.__k2i[b"__terms__"])
             assert isinstance(self._terms, int)
-        except TypeError:
+        except KeyError:
             pass  # new store, no problem
 
         self.__open = True
@@ -265,8 +297,6 @@ class SQLiteLSMStore(Store):
         return dump
 
     def close(self, commit_pending_transaction=False):
-        self.__open = False
-        # Closing the database also closes the prefixed databases
         for i in self.__indices:
             i.close()
         self.__contexts.close()
@@ -274,6 +304,7 @@ class SQLiteLSMStore(Store):
         self.__prefix.close()
         self.__i2k.close()
         self.__k2i.close()
+        self.__open = False
 
     def destroy(self, configuration=""):
         assert self.__open is False, "The Store must be closed."
@@ -304,14 +335,18 @@ class SQLiteLSMStore(Store):
 
         cspo, cpos, cosp = self.__indices
 
-        value = cspo.get(f"{c}^{s}^{p}^{o}^".encode())
+        try:
+            value = cspo[f"{c}^{s}^{p}^{o}^".encode()]
+        except KeyError:
+            value = None
 
         if value is None:
-            self.__contexts.put(c.encode(), b"")
+            self.__contexts[c.encode()] = b""
 
-            contexts_value = cspo.get(
-                f"{''}^{s}^{p}^{o}^".encode()
-            ) or "".encode("latin-1")
+            try:
+                contexts_value = cspo[f"{''}^{s}^{p}^{o}^".encode()]
+            except KeyError:
+                contexts_value = "".encode("latin-1")
 
             contexts = set(contexts_value.split("^".encode("latin-1")))
             contexts.add(c.encode())
@@ -319,26 +354,43 @@ class SQLiteLSMStore(Store):
             contexts_value = "^".encode("latin-1").join(contexts)
             assert contexts_value is not None
 
-            cspo.put(f"{c}^{s}^{p}^{o}^".encode(), b"")
-            cpos.put(f"{c}^{p}^{o}^{s}^".encode(), b"")
-            cosp.put(f"{c}^{o}^{s}^{p}^".encode(), b"")
-            if not quoted:  # pragma NO COVER
-                cspo.put(f"^{s}^{p}^{o}^".encode(), contexts_value)
-                cpos.put(f"^{p}^{o}^{s}^".encode(), contexts_value)
-                cosp.put(f"^{o}^{s}^{p}^".encode(), contexts_value)
+            cspo[f"{c}^{s}^{p}^{o}^".encode()] = b""
+            cpos[f"{c}^{p}^{o}^{s}^".encode()] = b""
+            cosp[f"{c}^{o}^{s}^{p}^".encode()] = b""
+            if not quoted:  # pragma: no cover
+                cspo[f"^{s}^{p}^{o}^".encode()] = contexts_value
+                cpos[f"^{p}^{o}^{s}^".encode()] = contexts_value
+                cosp[f"^{o}^{s}^{p}^".encode()] = contexts_value
             # self.__needs_sync = True
 
         else:
             pass  # already have this triple, ignoring")
 
+    def __clear(self):
+        dbs = [
+            self.__contexts,
+            self.__namespace,
+            self.__prefix,
+            self.__k2i,
+            self.__i2k,
+        ] + self.__indices
+
+        for db in dbs:
+            with db.cursor() as cursor:
+                for key, value in cursor:
+                    db.delete(key)
+
     def __remove(self, spo, c):
         s, p, o = spo
         cspo, cpos, cosp = self.__indices
-        contexts_value = cspo.get(
-            "^".encode("latin-1").join(
-                ["".encode("latin-1"), s, p, o, "".encode("latin-1")]
-            )
-        ) or "".encode("latin-1")
+        try:
+            contexts_value = cspo[
+                "^".encode("latin-1").join(
+                    ["".encode("latin-1"), s, p, o, "".encode("latin-1")]
+                )
+            ]
+        except KeyError:
+            contexts_value = "".encode("latin-1")
         contexts = set(contexts_value.split("^".encode("latin-1")))
         contexts.discard(c)
         contexts_value = "^".encode("latin-1").join(contexts)
@@ -347,10 +399,7 @@ class SQLiteLSMStore(Store):
 
         if contexts_value:
             for i, _to_key, _from_key in self.__indices_info:
-                i.put(
-                    _to_key((s, p, o), "".encode("latin-1")),
-                    contexts_value,
-                )
+                i[_to_key((s, p, o), "".encode("latin-1"))] = contexts_value
 
         else:
             for i, _to_key, _from_key in self.__indices_info:
@@ -367,6 +416,14 @@ class SQLiteLSMStore(Store):
                 context = None
 
         if (
+            subject is None
+            and predicate is None
+            and object is None
+            and context is None
+        ):
+            self.__clear()
+
+        elif (
             subject is not None
             and predicate is not None
             and object is not None
@@ -376,7 +433,11 @@ class SQLiteLSMStore(Store):
             p = _to_string(predicate)
             o = _to_string(object)
             c = _to_string(context)
-            value = self.__indices[0].get(f"{c}^{s}^{p}^{o}^".encode())
+            try:
+                value = self.__indices[0][f"{c}^{s}^{p}^{o}^".encode()]
+            except KeyError:
+                value = None
+
             if value is not None:
                 self.__remove((s.encode(), p.encode(), o.encode()), c.encode())
 
@@ -443,43 +504,42 @@ class SQLiteLSMStore(Store):
             return len(list(self.__indices[0][prefix:]))
         else:
             prefix = f"{self._to_string(context)}^".encode()
-            return len(list(self.__indices[0][prefix : prefix + b"x"]))
+            return len(list(self.__indices[0][prefix : prefix + b"xxxx"]))
 
     def bind(self, prefix, namespace):
         prefix = prefix.encode("utf-8")
         namespace = namespace.encode("utf-8")
-        bound_prefix = self.__prefix.get(namespace)
-        if bound_prefix:
+        try:
+            bound_prefix = self.__prefix[namespace]
             self.__namespace.delete(bound_prefix)
-        self.__prefix.put(namespace, prefix)
-        self.__namespace.put(prefix, namespace)
+        except KeyError:
+            self.__prefix[namespace] = prefix
+            self.__namespace[prefix] = namespace
+
+    def unbind(self, prefix):
+        self.__namespace.delete(prefix)
 
     def namespace(self, prefix):
         prefix = prefix.encode("utf-8")
-        ns = self.__namespace.get(prefix)
-        if ns is not None:
+        try:
+            ns = self.__namespace[prefix]
             return URIRef(ns.decode("utf-8"))
-        return None
+        except KeyError:
+            return None
 
     def prefix(self, namespace):
         namespace = namespace.encode("utf-8")
-        prefix = self.__prefix.get(namespace)
-        if prefix is not None:
+        try:
+            prefix = self.__prefix[namespace]
             return prefix.decode("utf-8")
-        return None
+        except KeyError:
+            return None
 
     def namespaces(self):
         for prefix, namespace in [
             (k.decode(), v.decode()) for k, v in self.__namespace
         ]:
             yield prefix, URIRef(namespace)
-
-    # @lru_cache(maxsize=5000)
-    # def __get_context(self, ident):
-    #     return self.__contexts.get(ident) or {}
-
-    # def __set_context(self, ident, g):
-    #     self.__contexts.put(ident.encode(), g)
 
     def contexts(self, triple=None):
         _from_string = self._from_string
@@ -492,7 +552,7 @@ class SQLiteLSMStore(Store):
             s = _to_string(s)
             p = _to_string(p)
             o = _to_string(o)
-            cxts = self.__indices[0].get(f"^{s}^{p}^{o}^".encode())
+            cxts = self.__indices[0][f"^{s}^{p}^{o}^".encode()]
 
         if cxts:
             for c in cxts.split("^".encode("latin-1")):
@@ -504,7 +564,7 @@ class SQLiteLSMStore(Store):
 
     @lru_cache(maxsize=5000)
     def add_graph(self, graph):
-        self.__contexts.put(self._to_string(graph).encode(), b"")
+        self.__contexts[self._to_string(graph).encode()] = b""
 
     def remove_graph(self, graph):
         self.remove((None, None, None), graph)
@@ -514,7 +574,7 @@ class SQLiteLSMStore(Store):
         """
         rdflib term from index number (as a string)
         """
-        k = self.__i2k.get(str(int(i)).encode())
+        k = self.__i2k[str(int(i)).encode()]
         if k is not None:
             val = self._loads(k)
             return val
@@ -528,7 +588,7 @@ class SQLiteLSMStore(Store):
         """
         k = self._dumps(term)
         try:
-            i = self.__k2i.get(k)
+            i = self.__k2i[k]
         except KeyError:  # pragma: no cover
             i = None  # pragma: no cover
 
@@ -536,9 +596,9 @@ class SQLiteLSMStore(Store):
             # Does not yet exist, increment refcounter and create
             self._terms += 1
             i = str(self._terms)
-            self.__i2k.put(i.encode(), k)
-            self.__k2i.put(k, i.encode())
-            self.__k2i.put(b"__terms__", str(self._terms).encode())
+            self.__i2k[i.encode()] = k
+            self.__k2i[k] = i.encode()
+            self.__k2i[b"__terms__"] = str(self._terms).encode()
         else:
             i = i.decode()  # pragma: no cover
         return i
@@ -615,7 +675,7 @@ def results_from_key_func(i, from_string):
             o = from_string(parts[(3 - i + 2) % 3 + 1])
         else:
             o = object
-        return (  # pragma NO COVER
+        return (  # pragma: no cover
             (s, p, o),
             (
                 from_string(c)

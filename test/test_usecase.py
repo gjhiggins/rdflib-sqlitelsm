@@ -43,7 +43,11 @@ def test_reuse():
         str(g)
         == "<http://rdflib.net> a rdfg:Graph;rdflib:storage [a rdflib:Store;rdfs:label 'SQLiteLSMStore']."
     )
+    g.parse(data=timblcardn3, format="n3")
+    assert len(g) == 86
     g.close()
+
+    del g
 
     g = Graph("SQLiteLSM", URIRef("http://rdflib.net"))
     g.open(path, create=False)
@@ -52,6 +56,9 @@ def test_reuse():
         str(g)
         == "<http://rdflib.net> a rdfg:Graph;rdflib:storage [a rdflib:Store;rdfs:label 'SQLiteLSMStore']."
     )
+
+    assert len(g) == 86
+
     g.close()
     g.destroy(configuration=path)
 
@@ -152,7 +159,16 @@ def test_basic():
 
     assert len(list(g.contexts())) == 1
 
+    g.remove((None, None, None))
+
     g.store.remove_graph(g.store)
+
+    g.bind("ex", URIRef("urn:exemplar:"))
+
+    g.store.unbind("ex")
+
+    g.parse(data=timblcardn3, format="n3")
+    g.remove((None, None, None, g.identifier))
 
     g.close()
     g.destroy(configuration=path)
