@@ -16,6 +16,7 @@ kwargs["install_requires"] = [
 
 kwargs["dependency_links"] = [
     "git+https://github.com/RDFLib/rdflib.git#egg=rdflib",
+    "git+https://github.com/coleifer/python-lsm-db.git#egg=lsm-db"
 ]
 
 kwargs["tests_require"] = [
