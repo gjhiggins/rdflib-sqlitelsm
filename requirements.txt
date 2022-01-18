@@ -1,3 +1,2 @@
 rdflib>=6.1
-Cython
-lsm-db
+lsm

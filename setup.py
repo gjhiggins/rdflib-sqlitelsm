@@ -9,8 +9,7 @@ kwargs = {}
 kwargs["install_requires"] = [
     "setuptools",
     "rdflib>=6.0",
-    "Cython",
-    "lsm-db",
+    "lsm",
     "importlib-metadata; python_version < '3.8.0'",
 ]
 

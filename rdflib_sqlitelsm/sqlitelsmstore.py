@@ -63,6 +63,7 @@ whereas LSM offers an interator:
 """
 import logging
 import os
+from threading import Thread
 from functools import lru_cache
 from urllib.request import pathname2url
 
@@ -80,12 +81,13 @@ __all__ = ["SQLiteLSMStore"]
 
 dbparams = dict(
     page_size=4096,
-    block_size=4096,
+    block_size=1024,
     multiple_processes=True,
-    write_safety=False,
-    autoflush=8192,
-    autocheckpoint=8192,
-    transaction_log=False,
+    safety=0,
+    autoflush=1024,
+    autocheckpoint=2048,
+    use_log=False,
+    binary=False,
 )
 
 
@@ -115,6 +117,7 @@ class SQLiteLSMStore(Store):
         self._loads = self.node_pickler.loads
         self._dumps = self.node_pickler.dumps
         self.dbdir = configuration
+        self.__needs_sync = None
 
         self.__indices = None
         self.__indices_info = None
@@ -137,14 +140,15 @@ class SQLiteLSMStore(Store):
         """
         Initialise the database environment prior to creating the files
         """
-        dbpathname = os.path.abspath(self.path).encode("utf-8")
+        dbpathname = os.path.abspath(self.path)
         # Help the user to avoid writing over an existing database
 
         if self.should_create:
-            if os.path.exists(dbpathname) and os.listdir(dbpathname) != []:
-                raise Exception(
-                    f"Database {dbpathname} aready exists, please move or delete it."
-                )
+            if os.path.exists(dbpathname):
+                if os.listdir(dbpathname) != []:
+                    raise Exception(f"Database {dbpathname} aready exists, please move or delete it.")
+                else:
+                    self.dbdir = dbpathname
             else:
                 os.mkdir(dbpathname)
                 self.dbdir = dbpathname
@@ -163,18 +167,13 @@ class SQLiteLSMStore(Store):
         for i in range(0, 3):
             index_name = to_key_func(i)(
                 (
-                    "s".encode("latin-1"),
-                    "p".encode("latin-1"),
-                    "o".encode("latin-1"),
+                    "s",
+                    "p",
+                    "o",
                 ),
-                "c".encode("latin-1"),
+                "c",
             )
-
-            index = LSM(
-                os.path.join(self.dbdir, index_name + b".db"),
-                open_database=False,
-                **dbparams,
-            )
+            index = LSM(os.path.join(self.dbdir, index_name + ".ldb"), **dbparams)
             self.__indices[i] = index
             self.__indices_info[i] = (index, to_key_func(i), from_key_func(i))
 
@@ -183,18 +182,18 @@ class SQLiteLSMStore(Store):
             results = []
             for start in range(0, 3):
                 score = 1
-                len = 0
+                _len = 0
                 for j in range(start, start + 3):
                     if i & (1 << (j % 3)):
                         score = score << 1
-                        len += 1
+                        _len += 1
                     else:
                         break
                 tie_break = 2 - start
-                results.append(((score, tie_break), start, len))
+                results.append(((score, tie_break), start, _len))
 
             results.sort()
-            score, start, len = results[-1]
+            score, start, _len = results[-1]
 
             def get_prefix_func(start, end):
                 def get_prefix(triple, context):
@@ -212,42 +211,17 @@ class SQLiteLSMStore(Store):
 
             lookup[i] = (
                 self.__indices[start],
-                get_prefix_func(start, start + len),
+                get_prefix_func(start, start + _len),
                 from_key_func(start),
                 results_from_key_func(start, self._from_string),
             )
 
         self.__lookup_dict = lookup
-
-        self.__contexts = LSM(
-            os.path.join(self.dbdir, b"contexts.db"),
-            open_database=False,
-            **dbparams,
-        )
-
-        self.__namespace = LSM(
-            os.path.join(self.dbdir, b"namespace.db"),
-            open_database=False,
-            **dbparams,
-        )
-
-        self.__prefix = LSM(
-            os.path.join(self.dbdir, b"prefix.db"),
-            open_database=False,
-            **dbparams,
-        )
-
-        self.__k2i = LSM(
-            os.path.join(self.dbdir, b"k2i.db"),
-            open_database=False,
-            **dbparams,
-        )
-
-        self.__i2k = LSM(
-            os.path.join(self.dbdir, b"i2k.db"),
-            open_database=False,
-            **dbparams,
-        )
+        self.__contexts = LSM(os.path.join(self.dbdir, "contexts.ldb"), **dbparams)
+        self.__namespace = LSM(os.path.join(self.dbdir, "namespace.ldb"), **dbparams)
+        self.__prefix = LSM(os.path.join(self.dbdir, "prefix.ldb"), **dbparams)
+        self.__k2i = LSM(os.path.join(self.dbdir, "k2i.ldb"), **dbparams)
+        self.__i2k = LSM(os.path.join(self.dbdir, "i2k.ldb"), **dbparams)
 
     def open(self, path, create=True):
         self.should_create = create
@@ -270,18 +244,68 @@ class SQLiteLSMStore(Store):
         assert self.__i2k.open() is True
 
         try:
-            self._terms = int(self.__k2i[b"__terms__"])
+            self._terms = int(self.__k2i["__terms__"])
             assert isinstance(self._terms, int)
         except KeyError:
             pass  # new store, no problem
 
         self.__open = True
 
+        self.__needs_sync = False
+        t = Thread(target=self.__sync_run)
+        t.setDaemon(True)
+        t.start()
+        self.__sync_thread = t
         return VALID_STORE
+
+    def __sync_run(self):
+        from time import sleep, time
+
+        try:
+            min_seconds, max_seconds = 10, 300
+            while self.__open:
+                if self.__needs_sync:
+                    t0 = t1 = time()
+                    self.__needs_sync = False
+                    while self.__open:
+                        sleep(0.1)
+                        if self.__needs_sync:
+                            t1 = time()
+                            self.__needs_sync = False
+                        if time() - t1 > min_seconds or time() - t0 > max_seconds:
+                            self.__needs_sync = False
+                            logger.debug("sync")
+                            self.sync()
+                            break
+                else:
+                    sleep(1)
+        except Exception as e:  # pragma: no cover
+            logger.exception(e)  # pragma: no cover
+
+    def sync(self):
+        if self.__open:
+            for i in self.__indices:
+                i.sync()
+            self.__contexts.sync()
+            self.__namespace.sync()
+            self.__prefix.sync()
+            self.__i2k.sync()
+            self.__k2i.sync()
+
+    def close(self, commit_pending_transaction=False):
+        self.__open = False
+        self.__sync_thread.join()
+        for i in self.__indices:
+            i.close()
+        self.__contexts.close()
+        self.__namespace.close()
+        self.__prefix.close()
+        self.__i2k.close()
+        self.__k2i.close()
 
     def dumpdb(self):
 
-        dump = "\n**** Dumping database:\n"
+        dump = "\n"
         dbs = {
             "self.__contexts": self.__contexts,
             "self.__namespace": self.__namespace,
@@ -293,7 +317,7 @@ class SQLiteLSMStore(Store):
         for k, v in dbs.items():
             dump += f"db: {k}\n"
             for key, value in v:
-                dump += f"\t{key}: {value}\n"
+                dump += f"\t{key}: {value.encode('utf-8')}\n"
         return dump
 
     def close(self, commit_pending_transaction=False):
@@ -336,35 +360,33 @@ class SQLiteLSMStore(Store):
         cspo, cpos, cosp = self.__indices
 
         try:
-            value = cspo[f"{c}^{s}^{p}^{o}^".encode()]
+            value = cspo[f"{c}^{s}^{p}^{o}^"]
         except KeyError:
             value = None
 
         if value is None:
-            self.__contexts[c.encode()] = b""
+            self.__contexts[c] = ""
 
             try:
-                contexts_value = cspo[f"{''}^{s}^{p}^{o}^".encode()]
+                contexts_value = cspo[f"{''}^{s}^{p}^{o}^"]
             except KeyError:
-                contexts_value = "".encode("latin-1")
+                contexts_value = ""
 
-            contexts = set(contexts_value.split("^".encode("latin-1")))
-            contexts.add(c.encode())
+            contexts = set(contexts_value.split("^"))
+            contexts.add(c)
 
-            contexts_value = "^".encode("latin-1").join(contexts)
+            contexts_value = "^".join(contexts)
             assert contexts_value is not None
 
-            cspo[f"{c}^{s}^{p}^{o}^".encode()] = b""
-            cpos[f"{c}^{p}^{o}^{s}^".encode()] = b""
-            cosp[f"{c}^{o}^{s}^{p}^".encode()] = b""
+            cspo[f"{c}^{s}^{p}^{o}^"] = ""
+            cpos[f"{c}^{p}^{o}^{s}^"] = ""
+            cosp[f"{c}^{o}^{s}^{p}^"] = ""
             if not quoted:  # pragma: no cover
-                cspo[f"^{s}^{p}^{o}^".encode()] = contexts_value
-                cpos[f"^{p}^{o}^{s}^".encode()] = contexts_value
-                cosp[f"^{o}^{s}^{p}^".encode()] = contexts_value
-            # self.__needs_sync = True
+                cspo[f"^{s}^{p}^{o}^"] = contexts_value
+                cpos[f"^{p}^{o}^{s}^"] = contexts_value
+                cosp[f"^{o}^{s}^{p}^"] = contexts_value
 
-        else:
-            pass  # already have this triple, ignoring")
+            self.__needs_sync = True
 
     def __clear(self):
         dbs = [
@@ -380,30 +402,26 @@ class SQLiteLSMStore(Store):
                 for key, value in cursor:
                     db.delete(key)
 
-    def __remove(self, spo, c):
+    def __remove(self, spo, c, quoted=False):
         s, p, o = spo
         cspo, cpos, cosp = self.__indices
         try:
-            contexts_value = cspo[
-                "^".encode("latin-1").join(
-                    ["".encode("latin-1"), s, p, o, "".encode("latin-1")]
-                )
-            ]
+            contexts_value = cspo["^{s}^{p}^{o}^"]
         except KeyError:
-            contexts_value = "".encode("latin-1")
-        contexts = set(contexts_value.split("^".encode("latin-1")))
+            contexts_value = ""
+        contexts = set(contexts_value.split("^"))
         contexts.discard(c)
-        contexts_value = "^".encode("latin-1").join(contexts)
+        contexts_value = "^".join(contexts)
         for i, _to_key, _from_key in self.__indices_info:
             i.delete(_to_key((s, p, o), c))
 
         if contexts_value:
             for i, _to_key, _from_key in self.__indices_info:
-                i[_to_key((s, p, o), "".encode("latin-1"))] = contexts_value
+                i[_to_key((s, p, o), "")] = contexts_value
 
         else:
             for i, _to_key, _from_key in self.__indices_info:
-                i.delete(_to_key((s, p, o), "".encode("latin-1")))
+                i.delete(_to_key((s, p, o), ""))
 
     def remove(self, spo, context):
         subject, predicate, object = spo
@@ -414,68 +432,52 @@ class SQLiteLSMStore(Store):
         if context is not None:
             if context == self:
                 context = None
-
-        if (
-            subject is None
-            and predicate is None
-            and object is None
-            and context is None
-        ):
+        needs_sync = False
+        if subject is None and predicate is None and object is None and context is None:
             self.__clear()
+            needs_sync = True
 
-        elif (
-            subject is not None
-            and predicate is not None
-            and object is not None
-            and context is not None
-        ):
+        elif subject is not None and predicate is not None and object is not None and context is not None:
             s = _to_string(subject)
             p = _to_string(predicate)
             o = _to_string(object)
             c = _to_string(context)
             try:
-                value = self.__indices[0][f"{c}^{s}^{p}^{o}^".encode()]
+                value = self.__indices[0][f"{c}^{s}^{p}^{o}^"]
             except KeyError:
                 value = None
 
             if value is not None:
-                self.__remove((s.encode(), p.encode(), o.encode()), c.encode())
-
-                # self.__needs_sync = True
-
+                self.__remove((s, p, o), c)
+                needs_sync = True
         else:
-            index, prefix, from_key, results_from_key = self.__lookup(
-                (subject, predicate, object), context
-            )
+            index, prefix, from_key, results_from_key = self.__lookup((subject, predicate, object), context)
             for key, value in index[prefix:]:
                 if key.startswith(prefix):
                     c, s, p, o = from_key(key)
                     if context is None:
-                        contexts_value = value or "".encode("latin-1")
+                        contexts_value = value or ""
                         # remove triple from all non quoted contexts
-                        contexts = set(
-                            contexts_value.split("^".encode("latin-1"))
-                        )
+                        contexts = set(contexts_value.split("^"))
                         # and from the conjunctive index
-                        contexts.add("".encode("latin-1"))
+                        contexts.add("")
                         for c in contexts:
                             for i, _to_key, _ in self.__indices_info:
                                 i.delete(_to_key((s, p, o), c))
                     else:
                         self.__remove((s, p, o), c)
-                else:
-                    break
+                    needs_sync = True
 
             if context is not None:
                 if subject is None and predicate is None and object is None:
-                    self.__contexts.delete(_to_string(context).encode())
+                    self.__contexts.delete(_to_string(context))
+                    needs_sync = True
 
-            # self.__needs_sync = needs_sync
+            self.__needs_sync = needs_sync
 
     def triples(self, spo, context=None):
         """A generator over all the triples matching"""
         assert self.__open, "The Store must be open."
-
         subject, predicate, object = spo
 
         if context is not None:
@@ -483,15 +485,11 @@ class SQLiteLSMStore(Store):
                 context = None  # pragma: no cover
 
         # _from_string = self._from_string ## UNUSED
-        index, prefix, from_key, results_from_key = self.__lookup(
-            (subject, predicate, object), context
-        )
+        index, prefix, from_key, results_from_key = self.__lookup((subject, predicate, object), context)
 
         for key, value in index[prefix:]:
             if key.startswith(prefix):
                 yield results_from_key(key, subject, predicate, object, value)
-            else:
-                break
 
     def __len__(self, context=None):
         assert self.__open, "The Store must be open."
@@ -500,15 +498,13 @@ class SQLiteLSMStore(Store):
                 context = None
 
         if context is None:
-            prefix = "^".encode("latin-1")
+            prefix = "^"
             return len(list(self.__indices[0][prefix:]))
         else:
-            prefix = f"{self._to_string(context)}^".encode()
-            return len(list(self.__indices[0][prefix : prefix + b"xxxx"]))
+            prefix = f"{self._to_string(context)}^"
+            return len(list(self.__indices[0][prefix : prefix + "xxxx"]))
 
     def bind(self, prefix, namespace):
-        prefix = prefix.encode("utf-8")
-        namespace = namespace.encode("utf-8")
         try:
             bound_prefix = self.__prefix[namespace]
             self.__namespace.delete(bound_prefix)
@@ -520,51 +516,45 @@ class SQLiteLSMStore(Store):
         self.__namespace.delete(prefix)
 
     def namespace(self, prefix):
-        prefix = prefix.encode("utf-8")
         try:
             ns = self.__namespace[prefix]
-            return URIRef(ns.decode("utf-8"))
+            return URIRef(ns)
         except KeyError:
             return None
 
     def prefix(self, namespace):
-        namespace = namespace.encode("utf-8")
         try:
             prefix = self.__prefix[namespace]
-            return prefix.decode("utf-8")
+            return prefix
         except KeyError:
             return None
 
     def namespaces(self):
-        for prefix, namespace in [
-            (k.decode(), v.decode()) for k, v in self.__namespace
-        ]:
+        for prefix, namespace in self.__namespace.items():
             yield prefix, URIRef(namespace)
 
     def contexts(self, triple=None):
         _from_string = self._from_string
         _to_string = self._to_string
 
-        cxts = None
-
         if triple:
             s, p, o = triple
             s = _to_string(s)
             p = _to_string(p)
             o = _to_string(o)
-            cxts = self.__indices[0][f"^{s}^{p}^{o}^".encode()]
+            contexts = self.__indices[0][f"^{s}^{p}^{o}^"]
 
-        if cxts:
-            for c in cxts.split("^".encode("latin-1")):
-                if c:
-                    yield _from_string(c)
+            if contexts:
+                for c in contexts.split("^"):
+                    if c:
+                        yield _from_string(c)
         else:
             for k in self.__contexts.keys():
                 yield _from_string(k)
 
     @lru_cache(maxsize=5000)
     def add_graph(self, graph):
-        self.__contexts[self._to_string(graph).encode()] = b""
+        self.__contexts[self._to_string(graph)] = ""
 
     def remove_graph(self, graph):
         self.remove((None, None, None), graph)
@@ -574,9 +564,9 @@ class SQLiteLSMStore(Store):
         """
         rdflib term from index number (as a string)
         """
-        k = self.__i2k[str(int(i)).encode()]
+        k = self.__i2k[str(int(i))]
         if k is not None:
-            val = self._loads(k)
+            val = self._loads(k.encode("latin-1"))
             return val
         else:
             raise Exception(f"Key for {i} is None")  # pragma: no cover
@@ -586,7 +576,7 @@ class SQLiteLSMStore(Store):
         """
         index number (as a string) from rdflib term
         """
-        k = self._dumps(term)
+        k = self._dumps(term).decode("latin-1")
         try:
             i = self.__k2i[k]
         except KeyError:  # pragma: no cover
@@ -596,11 +586,9 @@ class SQLiteLSMStore(Store):
             # Does not yet exist, increment refcounter and create
             self._terms += 1
             i = str(self._terms)
-            self.__i2k[i.encode()] = k
-            self.__k2i[k] = i.encode()
-            self.__k2i[b"__terms__"] = str(self._terms).encode()
-        else:
-            i = i.decode()  # pragma: no cover
+            self.__i2k[i] = k
+            self.__k2i[k] = i
+            self.__k2i["__terms__"] = str(self._terms)
         return i
 
     def __lookup(self, spo, context):
@@ -619,24 +607,20 @@ class SQLiteLSMStore(Store):
             i += 4
             object = _to_string(object)
         index, prefix_func, from_key, results_from_key = self.__lookup_dict[i]
-
-        prefix = "^".join(
-            prefix_func((subject, predicate, object), context)
-        ).encode("utf-8")
-
+        prefix = "^".join(prefix_func((subject, predicate, object), context))
         return index, prefix, from_key, results_from_key
 
 
 def to_key_func(i):
     def to_key(triple, context):
         "Takes a string; returns key"
-        return "^".encode("latin-1").join(
+        return "^".join(
             (
                 context,
                 triple[i % 3],
                 triple[(i + 1) % 3],
                 triple[(i + 2) % 3],
-                "".encode("latin-1"),
+                "",
             )
         )  # "" to tac on the trailing ^
 
@@ -646,7 +630,7 @@ def to_key_func(i):
 def from_key_func(i):
     def from_key(key):
         "Takes a key; returns string"
-        parts = key.split("^".encode("latin-1"))
+        parts = key.split("^")
         return (
             parts[0],
             parts[(3 - i + 0) % 3 + 1],
@@ -660,7 +644,7 @@ def from_key_func(i):
 def results_from_key_func(i, from_string):
     def from_key(key, subject, predicate, object, contexts_value):
         "Takes a key and subject, predicate, object; returns tuple for yield"
-        parts = key.split("^".encode("latin-1"))
+        parts = key.split("^")
         if subject is None:
             # TODO: i & 1: # dis assemble and/or measure to see which is faster
             # subject is None or i & 1
@@ -677,11 +661,7 @@ def results_from_key_func(i, from_string):
             o = object
         return (  # pragma: no cover
             (s, p, o),
-            (
-                from_string(c)
-                for c in contexts_value.split("^".encode("latin-1"))
-                if c
-            ),
+            (from_string(c) for c in contexts_value.split("^") if c),
         )
 
     return from_key
