@@ -319,21 +319,19 @@ class SQLiteLSMStore(Store):
             dump += f"db: {name}\n"
             if isinstance(entry, list):
                 for db in entry:
-                    for key, value in db:
+                    for key, value in db.items():
                         dump += f"\t{key}: {value}\n"
             else:
-                for key, value in entry:
+                for key, value in entry.items():
                     dump += f"\t{key}: {value}\n"
         return dump
 
     def close(self, commit_pending_transaction=False):
-        for i in self.__indices:
-            i.close()
-        self.__contexts.close()
-        self.__namespace.close()
-        self.__prefix.close()
-        self.__i2k.close()
-        self.__k2i.close()
+        for i in [self.__contexts, self.__namespace, self.__prefix, self.__i2k, self.__k2i] + self.__indices:
+            try:
+                i.close()
+            except Exception:
+                pass
         self.__open = False
 
     def destroy(self, configuration=""):
