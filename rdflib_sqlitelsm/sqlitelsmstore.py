@@ -312,12 +312,18 @@ class SQLiteLSMStore(Store):
             "self.__prefix": self.__prefix,
             "self.__k2i": self.__k2i,
             "self.__i2k": self.__i2k,
+            "self.__indices": self.__indices,
         }
 
-        for k, v in dbs.items():
-            dump += f"db: {k}\n"
-            for key, value in v:
-                dump += f"\t{key}: {value.encode('utf-8')}\n"
+        for name, entry in dbs.items():
+            dump += f"db: {name}\n"
+            if isinstance(entry, list):
+                for db in entry:
+                    for key, value in db:
+                        dump += f"\t{key}: {value}\n"
+            else:
+                for key, value in entry:
+                    dump += f"\t{key}: {value}\n"
         return dump
 
     def close(self, commit_pending_transaction=False):
